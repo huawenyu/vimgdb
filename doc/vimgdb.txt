@@ -1,0 +1,2 @@
+*vimgdb.txt* A gdb vim frontend implemented by remote Python plugin.
+
