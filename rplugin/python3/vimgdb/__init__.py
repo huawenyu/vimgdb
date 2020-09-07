@@ -2,14 +2,13 @@
 
 # pylint: disable=broad-except
 import re
-from contextlib import contextmanager
 import logging
 import logging.config
 from typing import Dict
 import pynvim   # type: ignore
-from vimgdb.common import BaseCommon, Common
-from vimgdb.app import App
-from vimgdb.logger import LOGGING_CONFIG
+from vimgdb.base.common import BaseCommon, Common
+from vimgdb.control.app import App
+from vimgdb.config.logger import LOGGING_CONFIG
 
 
 @pynvim.plugin
