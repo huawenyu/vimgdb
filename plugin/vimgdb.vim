@@ -232,6 +232,42 @@ function! s:prototype.ToggleBreak()
 endfunction
 
 
+function! s:prototype.ToggleBreakAll()
+    call self.Send("toggleAll")
+endfunction
+
+
+function! s:prototype.ClearBreak()
+    call self.Send("clearAll")
+endfunction
+
+
+function! s:prototype.TBreak()
+    let file_breakpoints = bufname('%') .':'. line('.')
+    call self.Send(["tbreak", file_breakpoints])
+endfunction
+
+function! s:prototype.RunToHere()
+    let file_breakpoints = bufname('%') .':'. line('.')
+    call self.Send(["runto", file_breakpoints])
+endfunction
+
+function! s:prototype.FrameUp()
+    call self.Send("up")
+endfunction
+
+function! s:prototype.FrameDown()
+    call self.Send("down")
+endfunction
+
+function! s:prototype.Next()
+    call self.Send("next")
+endfunction
+
+function! s:prototype.Step()
+    call self.Send("step")
+endfunction
+
 
 function! s:prototype.on_open() abort
     let l:__func__ = s:module. ":on_open() "
