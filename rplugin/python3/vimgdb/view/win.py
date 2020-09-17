@@ -1,27 +1,41 @@
 """."""
+from libtmux.pane import Pane
+from libtmux.server import Server
+from libtmux.window import Window
 
 from contextlib import contextmanager
-import pynvim
 from vimgdb.base.common import Common
 from vimgdb.model.cursor import Cursor
 from vimgdb.model.breakpoint import Breakpoint
+from vimgdb.base.controller import Controller
+from vimgdb.base.data import *
 
 
 class Win(Common):
     """Jump window management."""
 
-    def __init__(self, common: Common, cursor: Cursor,
-                 break_point: Breakpoint):
+    def __init__(self, common: Common, ctx: Controller):
         """ctor."""
         super().__init__(common)
+
+        self._shows = {
+                "evtGdbOnJump":     self.evt_GdbOnJump,
+                "viewClearAllBreak":   self.view_ClearAllBreak,
+                "viewSignBreak":   self.view_SignBreak,
+                }
+
+        self._ctx = ctx
+        self._name = type(self).__name__
+
         # window number that will be displaying the current file
         self.jump_win = None
-        self.cursor = cursor
-        self.breakpoint = break_point
-        self.buffers = set()
+        #self.cursor = cursor
+        #self.breakpoint = break_point
+        #self.buffers = set()
 
         # Create the default jump window
-        self._ensure_jump_window()
+        #self._ensure_jump_window()
+
 
     def cleanup(self):
         """Cleanup the windows and buffers."""
@@ -120,3 +134,48 @@ class Win(Common):
             # Query the breakpoints for the shown file
             self.breakpoint.query(buf_num, fname)
             self.vim.command("redraw")
+
+
+    def handle_show(self, data: BaseData):
+        if data._name in self._shows:
+            self.logger.info(f"{data._name}()")
+            self._shows[data._name](data)
+        else:
+            self.logger.info(f"has no {data._name}()")
+
+
+    def evt_GdbOnJump(self, data: BaseData):
+        self.logger.info(f"{data}")
+        assert isinstance(data, DataEvtCursor)
+        self.update_model()
+
+        #self._context.vimgdb.vim.command("e " + jumpfile  + ":" + jumpline)
+        #self._context.vimgdb.vim.asyn_call("VimGdbJump", jumpfile, jumpline)
+
+        #self._context.vimgdb.vim.funcs.VimGdbJump(jumpfile, jumpline)
+        #self._context.vimgdb._wrap_async(
+        #        self._context.vimgdb.vim.funcs.VimGdbJump)(
+        #                jumpfile, jumpline)
+        vimCmdstr = "VimGdbJump('" + data.fName + "', " + data.fLine + ")"
+        self.logger.debug(f"{vimCmdstr}")
+        self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
+
+
+    def view_ClearAllBreak(self, data: BaseData):
+        vimCmdstr = "VimGdbClearSign()"
+        self.logger.debug(f"{vimCmdstr}")
+        self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
+
+
+    def view_SignBreak(self, data: BaseData):
+        assert isinstance(data, DataObjBreakpoint)
+        vimCmdstr = ''
+        if data.enable:
+            vimCmdstr = "VimGdbSign('" + data.fName + "', " + str(data.fLine) + ", " + str(data.vim_signid) + ", 1)"
+        else:
+            vimCmdstr = "VimGdbSign('" + data.fName + "', " + str(data.fLine) + ", " + str(data.vim_signid) + ", 0)"
+        self.logger.debug(f"{vimCmdstr}")
+        self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
+
+
+

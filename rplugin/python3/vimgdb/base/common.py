@@ -22,15 +22,28 @@ class BaseCommon:
 class Common(BaseCommon):
     """Common part of all classes with convenient constructor."""
 
+    # debug file
+    gdb_file_debugfile    = "/tmp/vimgdb.log"
+
+    # map output
+    gdb_output            = '/tmp/vimgdb.gdb'
+    gdbserver_output      = '/tmp/vimgdb.gdbserver'
+
+    gdb_bt_qf             = '/tmp/vimgdb.bt'
+    gdb_break_qf          = '/tmp/vimgdb.qf_bp'
+    gdb_tmp_break         = './.gdb.infobreak'
+    #gdb_tmp_break         = '/tmp/vimgdb.infobreak'
+    gdb_bt_qf_md5         = None
+
+    gdb_file_infolocal    = "/tmp/vimgdb.var"
+    gdb_file_vimleave     = "/tmp/vimLeave"
+    gdb_file_bp_fromgdb   = "./.gdb.break"
+    gdb_file_bp_fromctrl   = "./.gdb.breakctrl"
+    gdb_anchor_breakpoint = "neobugger_setbreakpoint"
+
     def __init__(self, common):
         """ctor."""
         super().__init__(common.vim)
-
-        self.gdb_output       = '/tmp/vimgdb.gdb'
-        self.gdbserver_output = '/tmp/vimgdb.gdbserver'
-        self.gdb_bt_qf        = '/tmp/vimgdb.bt'
-        self.gdb_break_qf     = '/tmp/vimgdb.break'
-        self.gdb_bt_qf_md5     = None
 
     def update_view(self):
         #self.logger.warning("abstract!")

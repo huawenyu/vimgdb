@@ -1,9 +1,11 @@
-#from abc import ABC, abstractmethod
-
 import re
-from vimgdb.base.common import Common
 
-class State(Common):
+from abc import ABC, abstractmethod
+from vimgdb.base.common import Common
+from vimgdb.base.controller import Controller
+
+
+class State(Common, ABC):
     #pattern = re.compile(r"cookie")
     #sequence = "Cake and cookie"
     #pattern.search(sequence).group()
@@ -29,7 +31,7 @@ class State(Common):
     pat_continue            = ("continue", re.compile(r'^Continuing\.'))
     pat_breakpoint          = ("break", re.compile(r'^Breakpoint \d+'))
     pat_tempbreakpoint      = ("tempbreak", re.compile(r'^Temporary breakpoint \d+'))
-
+    pat_parsebreakpoint     = ("parsebreak", re.compile(r'^neobugger_setbreakpoint'))
 
 
     pat_inner_err           = ("innerErr", re.compile(r"\[Inferior\ +.{-}\ +exited\ +normally"))
@@ -56,7 +58,7 @@ class State(Common):
     # "/home/user/tmp/t1.c:35:414:beg:0x4011c1",
     # group(1), group(3)
     pat_jumpfile            = ("jump1", re.compile(r'^(\/([\/\wd-z\.-]*)*\/?)?:([\d]+)?'))
-    # \x1A is CTRL+Z control character. It is also EOF marker.
+    # \x1A is CTRL+Z controller character. It is also EOF marker.
     pat_jumpfile2           = ("jump2", re.compile(r'^\x1a\x1a([^:]+):(\d+):\d+'))
     # "> /home/user/tmp/client1.py(1)<module>()",
     pat_jumpfile3           = ("jump3", re.compile(r'^> /([\w\d\._/]+):\((\d+)\)'))
@@ -82,10 +84,11 @@ class State(Common):
     pat_remote_con_succ2    = ("remoteConSucc2", re.compile(r'^Remote debugging using \w+:\d+'))
 
 
-    def __init__(self, common, context, name):
-        super().__init__(common)
+    def __init__(self, common: Common, name: str, model, ctx: Controller):
+        Common.__init__(self, common)
         self._name = name
-        self._context = context
+        self._model = model
+        self._ctx = ctx
         self._patts = []
         self._rematch = None
         self._cmds = {}
@@ -93,21 +96,10 @@ class State(Common):
     def on_dummy(self):
         pass
 
-    #@abstractmethod
-    def handle1(self):
-        pass
-
-    #@abstractmethod
-    def handle_cmd(self, cmdname, args):
-        if cmdname in self._cmds:
-            self.logger.info("%s(%s)", cmdname, args)
-            self._cmds[cmdname](args)
-        else:
-            self.logger.info("has no %s()", self._name, cmdname)
 
     def handle_line(self, line):
         handled = False
-        o_state = self._context._state._name
+        o_state = self._name
         for onePatt in self._patts:
             for patt in onePatt.rePatts:
                 pattName = patt[0]
@@ -116,15 +108,15 @@ class State(Common):
                 if self._rematch:
                     handled = True
                     self.logger.info("matched '%s' as: {%s}",
-                            self._context._state._name,
+                            self._model._state._name,
                             pattName,
                             self._rematch.groups())
                     onePatt.actionCb(line)
                     if len(onePatt.nextState) > 0:
-                        self._context.trans_to(onePatt.nextState)
+                        self._model.trans_to(onePatt.nextState)
                     self.logger.info("State '%s' -> '%s': %s",
                             o_state,
-                            self._context._state._name,
+                            self._model._state._name,
                             onePatt.hint)
                     #if onePatt.update_model:
                     #    self.update_model()
@@ -136,10 +128,10 @@ class State(Common):
             res = State.pat_any[1].match(line)
             if res:
                 self.logger.info("ignore groups: %s",
-                        self._context._state._name,
+                        self._model._state._name,
                         res.groups())
             else:
                 self.logger.info("ignore it.",
-                        self._context._state._name)
+                        self._model._state._name)
         return
 

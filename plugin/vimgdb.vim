@@ -22,8 +22,8 @@ if !exists("s:init")
     set errorformat+=#%c\ \ %m\ \(%.%#\)\ at\ %f:%l
 
     let s:dir = expand('<sfile>:p:h')
-    let s:gdb_port = 7778
     let s:breakpoint_signid_start = 5000
+    let s:breakpoint_signid_min = 0
     let s:breakpoint_signid_max = 0
 
     let s:breakpoints = {}
@@ -36,14 +36,6 @@ if !exists("s:init")
 
     let s:_initialized = 0
     let s:_opened = 0
-    let s:const_bash = "cat ~/.bashrc > /tmp/tmp.bashrc; 
-          \ echo \"PS1='newRuntime $ '\" >> /tmp/tmp.bashrc; 
-          \ echo \"+o emacs\" >> /tmp/tmp.bashrc; 
-          \ echo \"+o vi\" >> /tmp/tmp.bashrc; 
-          \ bash --noediting --rcfile /tmp/tmp.bashrc 
-          \"
-    " 0 nothing, 1 smart-eval, 2 wait watch
-    let s:eval_mode = 0
 endif
 
 
@@ -64,40 +56,6 @@ let s:this._has_breakpoints = 0
 
 " @mode 0 refresh-all, 1 only-change
 function! s:prototype.RefreshBreakpointSigns(mode)
-    if a:mode == 0
-        let i = s:breakpoint_signid_start
-        while i <= s:breakpoint_signid_max
-            exe 'sign unplace '.i
-            let i += 1
-        endwhile
-    endif
-
-    let s:breakpoint_signid_max = 0
-    let id = s:breakpoint_signid_start
-    for [next_key, next_val] in items(s:breakpoints)
-        let buf = bufnr(next_val['file'])
-        let linenr = next_val['line']
-
-        if buf < 0
-            continue
-        endif
-
-        if a:mode == 1 && next_val['change']
-           \ && has_key(next_val, 'sign_id')
-            exe 'sign unplace '. next_val['sign_id']
-        endif
-
-        if a:mode == 0 || (a:mode == 1 && next_val['change'])
-            if next_val['state']
-                exe 'sign place '.id.' name=GdbBreakpointEn line='.linenr.' buffer='.buf
-            else
-                exe 'sign place '.id.' name=GdbBreakpointDis line='.linenr.' buffer='.buf
-            endif
-            let next_val['sign_id'] = id
-            let s:breakpoint_signid_max = id
-            let id += 1
-        endif
-    endfor
 endfunction
 
 
@@ -121,32 +79,6 @@ function! s:prototype.Send(data)
 endfunction
 
 
-function! s:prototype.Post(data)
-    let state = new#state#CurrState('client')
-    call self._Send(state, a:data, 1)
-endfunction
-
-
-function! s:prototype._Send(state, data, async)
-    let l:stateName = new#state#GetStateNameByState(a:state)
-    if l:stateName ==# "pause" || l:stateName ==# "init" || l:stateName ==# "start"
-        if a:async
-            call new#util#post('client', a:data."\<cr>")
-        else
-            call new#util#send('client', a:data."\<cr>")
-        endif
-    else
-        let l:__func__ = s:module. ":Send()"
-        silent! call s:log.error(l:__func__, ": Cann't send data when state=[", l:stateName, "]")
-    endif
-endfunction
-
-
-function! s:prototype.Attach()
-    call new#util#post('client', "target remote ". join(self.debug_server, ":"). "\n")
-endfunction
-
-
 function! s:prototype.Update_current_line_sign(add)
     " to avoid flicker when removing/adding the sign column(due to the change in
     " line width), we switch ids for the line sign and only remove the old line
@@ -158,55 +90,6 @@ function! s:prototype.Update_current_line_sign(add)
                     \. self._current_line. ' buffer='. self._current_buf
     endif
     exe 'sign unplace '.old_line_sign_id
-endfunction
-
-" Firstly delete all breakpoints for Gdb delete breakpoints only by ref-no
-" Then add breakpoints backto gdb
-" @mode 0 reset-all, 1 enable-only-change, 2 delete-all
-function! s:prototype.RefreshBreakpoints(mode)
-    let is_running = 0
-    let l:stateName = new#state#GetStateName('client')
-    if l:stateName ==# "running"
-        " pause first
-        let is_running = 1
-        "call self.Send("\<c-c>")
-        call self.Send("Interrupt")
-    endif
-
-    if a:mode == 0 || a:mode == 2
-        if self._has_breakpoints
-            call self.Send('delete')
-            let self._has_breakpoints = 0
-        endif
-    endif
-
-    if a:mode == 0 || a:mode == 1
-        let is_silent = 1
-        if a:mode == 1
-            let is_silent = 0
-        endif
-
-        for [next_key, next_val] in items(s:breakpoints)
-            if next_val['state'] && !empty(next_val['cmd'])
-                if is_silent == 1
-                    let is_silent = 2
-                    call self.Send('silent_on')
-                endif
-
-                if a:mode == 0 || (a:mode == 1 && next_val['change'])
-                    let self._has_breakpoints = 1
-                    call self.Send('break '. next_val['cmd'])
-                endif
-            endif
-        endfor
-        if is_silent == 2
-            call self.Send('silent_off')
-        endif
-    endif
-
-    if is_running
-        call self.Send('next')
-    endif
 endfunction
 
 
@@ -335,43 +218,10 @@ function! s:prototype.ToggleBreak()
         let file_breakpoints = fname .':'.linenr
     endif
 
-    call self.Send(["break", file_breakpoints, type, cur_line])
+    call self.Send(["toggle", file_breakpoints, type, cur_line])
     return
 
 
-
-
-    " @todo wilson
-    let mode = 0
-    let old_value = get(s:breakpoints, file_breakpoints, {})
-    if empty(old_value)
-        let break_new = input("[break] ", file_breakpoints)
-        if !empty(break_new)
-            let old_value = {
-                        \'file':fname,
-                        \'type':type,
-                        \'line':linenr, 'col':colnr,
-                        \'fn' : '',
-                        \'state' : 1,
-                        \'cmd' : break_new,
-                        \'change' : 1,
-                        \}
-            let mode = 1
-            let s:breakpoints[file_breakpoints] = old_value
-        endif
-    elseif old_value['state']
-        let break_new = input("[disable break] ", old_value['cmd'])
-        if !empty(break_new)
-            let old_value['state'] = 0
-            let old_value['change'] = 1
-        endif
-    else
-        let break_new = input("(delete break) ", old_value['cmd'])
-        if !empty(break_new)
-            call remove(s:breakpoints, file_breakpoints)
-        endif
-        let old_value = {}
-    endif
     call self.SaveVariable(s:breakpoints, s:brk_file)
     call self.Breaks2Qf()
     call self.RefreshBreakpointSigns(mode)
@@ -381,127 +231,6 @@ function! s:prototype.ToggleBreak()
     endif
 endfunction
 
-
-function! s:prototype.ToggleBreakAll()
-    let s:toggle_all = ! s:toggle_all
-    let mode = 0
-    for v in values(s:breakpoints)
-        if s:toggle_all
-            let v['state'] = 0
-        else
-            let v['state'] = 1
-        endif
-    endfor
-    call self.RefreshBreakpointSigns(0)
-    call self.RefreshBreakpoints(0)
-endfunction
-
-
-function! s:prototype.TBreak()
-    let file_breakpoints = bufname('%') .':'. line('.')
-    call self.Send(["tbreak", file_breakpoints])
-endfunction
-
-function! s:prototype.RunToHere()
-    let file_breakpoints = bufname('%') .':'. line('.')
-    call self.Send(["runto", file_breakpoints])
-endfunction
-
-function! s:prototype.ClearBreak()
-    let s:breakpoints = {}
-    call self.Breaks2Qf()
-    call self.RefreshBreakpointSigns(0)
-    call self.RefreshBreakpoints(2)
-endfunction
-
-
-function! s:prototype.FrameUp()
-    call self.Send("up")
-endfunction
-
-function! s:prototype.FrameDown()
-    call self.Send("down")
-endfunction
-
-function! s:prototype.Next()
-    "let l:__func__ = s:module. ":Next() "
-    call self.Send("next")
-endfunction
-
-function! s:prototype.Step()
-    call self.Send("step")
-endfunction
-
-function! s:prototype.Eval(expr)
-    let l:stateName = new#state#GetStateName('client')
-    if l:stateName !=# "pause"
-        throw 'Gdb eval only under "pause" but state="'
-                \. l:stateName .'"'
-    endif
-
-    if g:neobugger_smart_eval
-        " Enable smart-eval base-on the special project
-        let s:eval_mode = 1
-        let s:expr = a:expr
-        call self.Send(printf('whatis %s', a:expr))
-    else
-        call self.Send(printf('p %s', a:expr))
-    endif
-endfunction
-
-
-" Enable smart-eval base-on the special project
-function! s:prototype.Whatis(type)
-    if l:stateName !=# "pause"
-        throw 'Gdb eval only under "pause" state'
-    endif
-    if empty(s:expr)
-        throw 'Gdb eval expr is empty'
-    endif
-
-    if g:neobugger_smart_eval
-        let s:eval_mode = 0
-    else
-        return
-    endif
-
-    if has_key(self, 'Symbol')
-        silent! call s:log.trace("forward to getsymbol")
-        let expr = self.Symbol(a:type, s:expr)
-        call self.Send(expr)
-    else
-        call self.Send(printf('p %s', s:expr))
-    endif
-    let s:expr = ""
-endfunction
-
-
-function! s:prototype.Watch(expr)
-    let l:__func__ = s:module. ":watch() "
-    let expr = a:expr
-    if expr[0] != '&'
-        let expr = '&' . expr
-    endif
-
-    let s:eval_mode = 2
-    silent! call s:log.debug(l:__func__, expr)
-    call self.Eval(expr)
-endfunction
-
-function! s:prototype.ParseBacktrace()
-  let s:lines = readfile('/tmp/gdb.bt')
-  for s:line in s:lines
-    echo s:line
-  endfor
-endfunction
-
-
-function! s:prototype.ParseVar()
-  let s:lines = readfile('/tmp/gdb.bt')
-  for s:line in s:lines
-    echo s:line
-  endfor
-endfunction
 
 
 function! s:prototype.on_open() abort
@@ -582,16 +311,6 @@ function! s:prototype.on_start(model, state, match_list) abort
         silent! lopen
     endif
 
-    call hw#tasklist#add(
-                \ hw#functor#new(
-                \    {-> execute(
-                \       ['echomsg "Debug ready to go."',
-                \        'call win_gotoid(g:vmwRuntime.wid_main)',
-                \        'windo redraw!',
-                \       ], '')
-                \    }, ""
-                \  )
-                \)
 endfunction
 
 
@@ -600,108 +319,6 @@ function! s:prototype.on_load_bt(file)
         exec "cgetfile " . a:file
         "call utilquickfix#RelativePath()
     endif
-endfunction
-
-function! s:prototype.on_continue(...)
-    call self.Update_current_line_sign(0)
-endfunction
-
-function! s:prototype.on_jump(model, state, match_list)
-    let l:__func__ = s:module. ":on_jump() "
-    "silent! call s:log.debug(l:__func__, "model=", a:model, " state=", a:state, " matched=", a:match_list)
-
-    let l:file = a:match_list[1]
-    let l:line = a:match_list[2]
-
-    let l:stateName = new#state#GetStateNameByState(a:state)
-    if l:stateName !=# "pause"
-        call self.Send('parser_bt')
-        call self.Send('info line')
-    endif
-    call self.Jump(l:file, l:line)
-endfunction
-
-function! s:prototype.on_print(model, state, match_list) abort
-    let l:__func__ = s:module. ":on_print() "
-    "silent! call s:log.debug(l:__func__, "model=", a:model, " state=", a:state, " matched=", a:match_list)
-
-    silent! call s:log.debug(l:__func__, s:expr, a:match_list[1])
-    if s:eval_mode == 2
-        let s:eval_mode = 0
-        call self.Send('watch *(int*)0x'. a:match_list[1])
-    endif
-endfunction
-
-function! s:prototype.on_whatis(type, ...)
-    call self.Whatis(a:type)
-endfunction
-
-function! s:prototype.on_parseend(...)
-    call self.Whatis(a:type)
-endfunction
-
-function! s:prototype.on_retry(...)
-    if self._server_exited
-        return
-    endif
-    sleep 1
-    call self.Attach()
-    call self.Send('continue')
-endfunction
-
-
-function! s:prototype.on_server_accept(model, state, match_list) abort
-    let l:__func__ = "s:module:on_server_accept() "
-    "silent! call s:log.debug(l:__func__, "model=", a:model, " state=", a:state, " matched=", a:match_list)
-
-    call self.Attach()
-endfunction
-
-
-function s:prototype.on_remote_debugging(...)
-    let self._remote_debugging = 1
-    call state#Switch('client', 'pause', 0)
-endfunction
-
-
-function! s:prototype.on_client_conn_succ(...)
-    if g:gdb_auto_run
-        if self.debug_mode == 1
-            " Should not continue, and pause for customize set breakpoints
-            "call new#util#post('client', "continue\n")
-        else
-            "
-        endif
-    endif
-endfunction
-
-function! s:prototype.on_remoteconn_succ(...)
-    call state#Switch('client', 'pause', 0)
-endfunction
-
-
-function! s:prototype.on_remoteconn_fail(...)
-    silent! call s:log.error("Remote connect gdbserver fail!")
-endfunction
-
-
-function! s:prototype.on_pause(...)
-    call state#Switch('client', 'pause', 0)
-endfunction
-
-
-function! s:prototype.on_disconnected(...)
-    if !self._server_exited && self._reconnect
-        " Refresh to force a delete of all watchpoints
-        "call self.RefreshBreakpoints(2)
-        sleep 1
-        call self.Attach()
-        call self.Send('continue')
-    endif
-endfunction
-
-function! s:prototype.on_exit(...)
-    let self._server_exited = 1
 endfunction
 
 
@@ -990,6 +607,43 @@ endfunction
 function! VimGdbJump(file, line)
     call s:this.Jump(a:file, a:line)
 endfunction
+
+
+function! VimGdbClearSign()
+    if s:breakpoint_signid_min == 0
+        return
+    endif
+
+    let i = s:breakpoint_signid_min
+    while i <= s:breakpoint_signid_max
+        exe 'sign unplace '.i
+        let i += 1
+    endwhile
+endfunction
+
+function! VimGdbSign(file, line, signid, signtype)
+    let buf = bufnr(a:file)
+    if bufexists(buf)
+        if s:breakpoint_signid_min == 0
+            let s:breakpoint_signid_min = a:signid
+        elseif s:breakpoint_signid_min > a:signid
+            let s:breakpoint_signid_min = a:signid
+        endif
+
+        if s:breakpoint_signid_max == 0
+            let s:breakpoint_signid_max = a:signid
+        elseif s:breakpoint_signid_max < a:signid
+            let s:breakpoint_signid_max = a:signid
+        endif
+
+        if a:signtype == 0
+            exe 'sign place '.a:signid .' name=GdbBreakpointDis line='.a:line.' buffer='.buf
+        else
+            exe 'sign place '.a:signid .' name=GdbBreakpointEn line='.a:line.' buffer='.buf
+        endif
+    endif
+endfunction
+
 
 function! VimGdbInit()
     call s:this.Init()

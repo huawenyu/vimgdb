@@ -27,14 +27,14 @@ define skip
 end
 
 define bsave
-	shell rm -f brestore.txt
-	set logging file brestore.txt
+	shell rm -f .gdb.infobreak
+	set logging file .gdb.infobreak
 	set logging on
 	info break
 	set logging off
-	# reformat on-the-fly to a valid gdb command file
-	#shell perl -n -e 'print "break $1\n" if /^\d+.+?(\S+)$/g' brestore.txt > brestore.gdb
-	shell perl -ne "print \"break \$1 \n\" if /at\s(.*:\d+)/" brestore.txt > brestore.gdb
+	## reformat on-the-fly to a valid gdb command file
+	##shell perl -n -e 'print "break $1\n" if /^\d+.+?(\S+)$/g' brestore.txt > brestore.gdb
+	#shell perl -ne "print \"break \$1 \n\" if /at\s(.*:\d+)/" brestore.txt > brestore.gdb
 end
 
 document bsave
@@ -110,7 +110,26 @@ define hook-continue
 end
 
 define hookpost-break
+	#save breakpoints /tmp/vimgdb.bp
+	bsave
 	echo neobugger_setbreakpoint\n
-	save breakpoints ./.gdb.breakpoints
+end
+
+define hookpost-enable
+	#save breakpoints /tmp/vimgdb.bp
+	bsave
+	echo neobugger_setbreakpoint\n
+end
+
+define hookpost-disable
+	#save breakpoints /tmp/vimgdb.bp
+	bsave
+	echo neobugger_setbreakpoint\n
+end
+
+define hookpost-delete
+	#save breakpoints /tmp/vimgdb.bp
+	bsave
+	echo neobugger_setbreakpoint\n
 end
 
