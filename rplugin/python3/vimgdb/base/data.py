@@ -36,6 +36,13 @@ class DataEvtCursor(DataEvent):
         self.fLine = fLine
 
 
+class DataEvtParam1(DataEvent):
+    def __init__(self, name: str, param1: str):
+        """ctor."""
+        super().__init__(name)
+        self.param1 = param1
+
+
 class DataObjBreakpoint(BaseData):
     vim_signid_start   = 5000
 
@@ -49,7 +56,7 @@ class DataObjBreakpoint(BaseData):
     type_line          = 2
     type_has_condition = 3
 
-    def __init__(self, name: str, cmdstr: str, fName: str, fLine: str, bp_id: str, en: str):
+    def __init__(self, name: str, cmdstr: str, fName: str, fLine: str, bp_id: str, en: str, funcName: str):
         """ctor."""
         super().__init__(name)
         self.status = DataObjBreakpoint.status_init
@@ -60,6 +67,7 @@ class DataObjBreakpoint(BaseData):
         self.vim_bufnr = 0
         self.vim_line = 0
 
+        self.funcName = funcName
         self.fName = fName
         self.fLine = str(fLine)
         self.bp_id = str(bp_id)
@@ -70,20 +78,32 @@ class DataObjBreakpoint(BaseData):
             self.enable = False
 
     @classmethod
-    def CreatebyId(cls, bp_id: str):
-        return cls('_breakpoint', '', '', '', bp_id, True)
+    def from_json(cls, data):
+        return cls(**data)
 
     @classmethod
-    def CreatebyFile(cls, fname: str, fline: str):
-        return cls('_breakpoint', '', fname, fline, '', True)
+    def CreateById(cls, bp_id: str):
+        return cls('_breakpoint', '', '', '', bp_id, 'y', 'dummyFunc')
+
+    @classmethod
+    def CreateById2(cls, bp_id: str, cmdstr: str, ctxline: str):
+        return cls('_breakpoint', cmdstr, '', '', bp_id, 'y', 'dummyFunc')
+
+    @classmethod
+    def CreateByFile(cls, fname: str, fline: str):
+        return cls('_breakpoint', '', fname, fline, '', 'y', 'dummyFunc')
 
     @classmethod
     def CreateByCmdstr(cls, cmdstr: str):
-        return cls('_breakpoint', cmdstr, '', '', '', True)
+        return cls('_breakpoint', cmdstr, '', '', '', 'y', 'dummyFunc')
 
     @classmethod
-    def Create(cls, fname: str, fline: str, cmdstr: str, bp_id: str, en: str):
-        return cls('_breakpoint', cmdstr, fname, fline, bp_id, en)
+    def CreateDummy(cls):
+        return cls('_breakpoint', "Empty Breakpoint", "<file>", -1, 0, 'n', 'dummyFunc')
+
+    @classmethod
+    def Create(cls, fname: str, fline: str, cmdstr: str, bp_id: str, en: str, funcName: str):
+        return cls('_breakpoint', cmdstr, fname, fline, bp_id, en, funcName)
 
     def action(self, action: str):
         self._name = action
@@ -98,6 +118,7 @@ class DataObjBreakpoint(BaseData):
             self.status = DataObjBreakpoint.status_disable
         self.fName = bp.fName
         self.fLine = bp.fLine
+        self.funcName = bp.funcName
         if not self.cmdstr:
             self.cmdstr = bp.cmdstr
 

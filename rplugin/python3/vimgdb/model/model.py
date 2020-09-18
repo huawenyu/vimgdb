@@ -89,9 +89,9 @@ class Model(Common, ABC):
             for line in thelines:
                 if os.path.exists('/tmp/vimLeave'):
                     break
-                self.logger.info(f"'{line}'")
                 try:
                     if self._state:
+                        self.logger.info(f"connect@{self._state._name}@ '{line}'")
                         self._state.handle_line(line)
                     else:
                         self.logger.error(f"state is None: {line}")

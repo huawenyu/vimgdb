@@ -6,6 +6,11 @@ from vimgdb.base.common import Common
 from vimgdb.base.data import BaseData
 
 
+class GdbMode:
+    LOCAL = 'local'
+    REMOTE = 'remote'
+
+
 class Controller(Common):
 
     def __init__(self, common: Common, name: str):
@@ -13,6 +18,10 @@ class Controller(Common):
         self._name = name
         self._outfile = ''
         self._state = None
+
+        self.gdbMode = GdbMode.LOCAL
+        self.gdbArgs = ''
+        self.gdbserverPort = 444
 
         #self.models_coll: Dict[str, Model] = {}
         self.models_coll = {}
@@ -79,6 +88,7 @@ class Controller(Common):
         else:
             for modelName, model in self.models_coll.items():
                 if type(vimArgs) is str:
+                    #self.logger.info(f"'{Common.json_out(model._cmds)}'")
                     if vimArgs in model._cmds:
                         handled = True
                         self.logger.info(f"dispatch to model '{modelName}'")
@@ -88,8 +98,6 @@ class Controller(Common):
                         handled = True
                         self.logger.info(f"dispatch to model '{modelName}'")
                         model.handle_cmd(vimArgs[0], vimArgs)
-                else:
-                    self.logger.info("handle fail: args=%s", args)
 
         if not handled:
             self.logger.info(f"Can't handle {args}")

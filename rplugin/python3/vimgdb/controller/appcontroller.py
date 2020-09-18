@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import _thread
 import time
 import subprocess
@@ -10,18 +11,13 @@ from libtmux.server import Server
 from libtmux.window import Window
 
 from vimgdb.base.common import Common
-from vimgdb.base.controller import Controller
+from vimgdb.base.controller import Controller, GdbMode
 from vimgdb.model.gdb import Gdb
 from vimgdb.model.gdbserver import GdbServer
 from vimgdb.model.cursor import Cursor
 from vimgdb.model.breakpoint import Breakpoint
 
 from vimgdb.view.win import Win
-
-
-class GdbMode:
-    LOCAL = 'local'
-    REMOTE = 'remote'
 
 
 class AppController(Controller):
@@ -35,7 +31,6 @@ class AppController(Controller):
 
         self.workdir = os.getcwd()
         self.file = ''
-        self.debug_mode = GdbMode.LOCAL
         self.debug_bin = "t1"
 
         self.tmux_server = None
@@ -135,13 +130,26 @@ class AppController(Controller):
 
 
     def run(self, args):
+        self.logger.info("==============================================")
+        self.logger.info("==============================================")
+        self.logger.info("==============================================")
+        self.logger.info("==============================================")
+        self.logger.info("             *** Gdb instance ***")
+        self.logger.info("")
         self.logger.info("args=%s", args)
         arg_n = len(args)
         if arg_n < 2:
             self.vim.command('echomsg "Gdb start fail, should: call VimGdb(\'local\', \'<bin-file>\')"')
             return
-        self.debug_mode = args[0]
-        self.debug_bin = args[1]
+        self.gdbMode = args[0]
+        self.gdbArgs = args[1]    # 't1 dut:8888 -u admin -p "" -t "gdb:trace"'
+        chunks = re.split(' +', self.gdbArgs)
+        if chunks:
+            self.debug_bin = chunks[0]
+            self.logger.info(f"Gdb starting '{self.debug_bin}' with {chunks[1:]} ...")
+        else:
+            self.debug_bin = self.gdbArgs
+            self.logger.info(f"Gdb starting '{self.debug_bin}' ...")
 
         # let s:dir = expand('<sfile>:p:h')
         self.vim.command('let g:vimgdb_file = expand("%:p")')
@@ -203,11 +211,14 @@ class AppController(Controller):
             return
         self.views_coll[_view._name] = _view
 
-        if self.debug_mode == GdbMode.LOCAL:
+        if self.gdbMode == GdbMode.LOCAL:
             self.create_gdb_local(args)
-        elif self.debug_mode == GdbMode.REMOTE:
+        elif self.gdbMode == GdbMode.REMOTE:
             self.create_gdb_remote(args)
         else:
-            self.logger.error("VimGdb mode=%s not exist.", self.debug_mode)
+            self.logger.error("VimGdb mode=%s not exist.", self.gdbMode)
+
+        # focus backto vim
+        self.tmux_pane_vim.select_pane()
 
         return

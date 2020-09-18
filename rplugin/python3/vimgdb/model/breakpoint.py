@@ -1,5 +1,6 @@
 import re
 import json
+import os.path
 
 from vimgdb.base.common import Common
 from vimgdb.model.model import Model
@@ -21,6 +22,7 @@ class Breakpoint(Model):
         self.breaks = {}    # : Dict[str, Dict[str, List[str]]]
         self._ctx = ctx
         self.max_sign_id = 0
+        self._newadd_bp = None
 
         self._evts = {
                 "evtRefreshBreakpt": self.evt_RefreshBreakpoint,
@@ -30,12 +32,24 @@ class Breakpoint(Model):
                 "toggle":     self.cmd_toggle,
                 }
 
-        self._vim_set_bp = None
+        self._acts = {
+                "actLoadBreak":     self.act_loadbreak,
+                }
 
 
     def dump_bp(self, info: str, data: BaseData):
+        assert isinstance(data, DataObjBreakpoint)
         self.logger.info(f"{info}: status={data.status} id={data.bp_id} {data.enable} file={data.fName}:{data.fLine}: cmdstr='{data.cmdstr}'")
-        self.logger.info(f"        sign={data.vim_signid} {data.vim_bufnr}:{data.vim_line}")
+        self.logger.info(f"        in-function '{data.funcName}' sign={data.vim_signid} {data.vim_bufnr}:{data.vim_line}")
+
+
+    def dump_vimqf(self, viewBp: BaseData, fVimqf):
+        assert isinstance(viewBp, DataObjBreakpoint)
+        if viewBp.cmdstr.endswith(viewBp.funcName):
+            fVimqf.write(f"#{viewBp.bp_id}  0xFFFF in {'[o]' if viewBp.enable else '[x]'}{viewBp.cmdstr} () at {viewBp.fName}:{viewBp.fLine}\n")
+        else:
+            fVimqf.write(f"#{viewBp.bp_id}  0xFFFF in {'[o]' if viewBp.enable else '[x]'}{viewBp.cmdstr}@{viewBp.funcName} () at {viewBp.fName}:{viewBp.fLine}\n")
+
 
     def evt_RefreshBreakpoint(self, data: BaseData):
         self.logger.info(f"{data._name}")
@@ -48,37 +62,59 @@ class Breakpoint(Model):
             self._ctx.handle_shows(DataAction("viewClearAllBreak"))
             if not breaks:
                 self.logger.info(f"{data._name} parse the file 'info break': No breakpoints")
+                self.store.deleteAll()
+                with open(Common.vimqf_breakpoint, "w") as fVimqf:
+                    self.dump_vimqf(DataObjBreakpoint.CreateDummy(), fVimqf)
+                self.store.Save()
+                self._ctx.handle_shows(viewBp.action("viewUpdateBp"))
                 return
 
 
             # update the new added bp
-            if self._vim_set_bp and self._vim_set_bp.status == DataObjBreakpoint.status_adding:
+            # oldBp = self.store.findById(str(aBp.bp_id))
+            if self._newadd_bp and self._newadd_bp.status == DataObjBreakpoint.status_adding:
                 for aBp in breaks:
                     if not self.store.checkExistById(str(aBp.bp_id)):
-                        self._vim_set_bp.update(aBp)
-                        self.store.addBreakpoint(self._vim_set_bp)
-                        self._vim_set_bp = None
+                        self._newadd_bp.update(aBp)
+                        self.store.addBreakpoint(self._newadd_bp)
+                        self._newadd_bp = None
                         break
 
-            for aBp in breaks:
-                viewBp = self.store.update(aBp)
-                self._ctx.handle_shows(viewBp.action("viewSignBreak"))
+            # w write+truncate, a write+append
+            with open(Common.vimqf_breakpoint, "w") as fVimqf:
+                for aBp in breaks[::-1]:
+                    viewBp = self.store.update(aBp)
+                    self.dump_vimqf(viewBp, fVimqf)
+                    self._ctx.handle_shows(viewBp.action("viewSignBreak"))
+            self._ctx.handle_shows(viewBp.action("viewUpdateBp"))
+            self.store.Save()
 
 
     def cmd_toggle(self, args):
         self.logger.info(f"{args}")
-        cmdstr = str(args[1])
-        aBreakpoint = self.store.findByCmdStr(cmdstr)
-        if aBreakpoint:
-            self.dump_bp("found", aBreakpoint)
-            self.proc_breakpoint(aBreakpoint)
-        else:
-            self._vim_set_bp = DataObjBreakpoint.CreateByCmdstr(cmdstr)
-            self.proc_breakpoint(self._vim_set_bp)
-            return
+        cmdstr        = str(args[1])
+        bpType        = args[2]    # 0 line, 1 func, 10 new-reload-break
+        bpId          = args[3]
+        bpContextline = args[4]
+
+        # breakpoint by manually
+        if bpType < 10:
+            aBreakpoint = self.store.findByCmdStr(cmdstr)
+            if aBreakpoint:
+                self.dump_bp("found", aBreakpoint)
+                self.cook_breakpoint(aBreakpoint)
+            else:
+                self._newadd_bp = DataObjBreakpoint.CreateByCmdstr(cmdstr)
+                self.cook_breakpoint(self._newadd_bp)
+                return
+        else: # initilize reload breakponts
+                self._newadd_bp = DataObjBreakpoint.CreateById2(bpId, cmdstr, bpContextline)
+                self.store.addBreakpoint(self._newadd_bp)
+                self.cook_breakpoint(self._newadd_bp)
+                self._newadd_bp = None
 
 
-    def proc_breakpoint(self, bp: DataObjBreakpoint):
+    def cook_breakpoint(self, bp: DataObjBreakpoint):
         if bp.status == DataObjBreakpoint.status_init:
             bp.status = DataObjBreakpoint.status_adding
             self._ctx.handle_acts(bp.action("actAddBreak"))
@@ -94,7 +130,7 @@ class Breakpoint(Model):
             Select lines in the current file with enabled breakpoints.
         """
         #self.logger.debug(f"Info break: {response}")
-        pos_pattern = re.compile(r"^\d.*breakpoint.*keep.*in.* at ([^:]+):(\d+)")
+        pos_pattern = re.compile(r"^\d.*breakpoint.*keep.* in (\w+) at ([^:]+):(\d+)")
         #enb_pattern = re.compile(r"\sy\s+0x")
         breaks = []
         for line in response:
@@ -113,17 +149,18 @@ class Breakpoint(Model):
 
                     # Choose breakpoint for current filename
                     if fname_sym:
-                        is_end_match = fname_sym.endswith(match.group(1))
+                        is_end_match = fname_sym.endswith(match.group(2))
                         is_end_match_full_path = fname_sym.endswith(
-                            os.path.realpath(match.group(1)))
+                            os.path.realpath(match.group(2)))
                     else:
                         is_end_match = True
 
                     if (match and
                             (is_end_match or is_end_match_full_path)):
-                        fLine = match.group(2)
+                        fLine = match.group(3)
                         #fNameLine = match.group(0)
-                        fName = match.group(1)
+                        fName = match.group(2)
+                        funcName = match.group(1)
                         enable = fields[3]
 
                         # If a breakpoint has multiple locations, GDB only
@@ -131,7 +168,7 @@ class Breakpoint(Model):
                         # location number.  For instance, 1.4 -> 1
                         br_id = fields[0].split('.')[0]
 
-                        breaks.append(DataObjBreakpoint.Create(fName, fLine, fName+":"+fLine, br_id, enable))
+                        breaks.append(DataObjBreakpoint.Create(fName, fLine, fName+":"+fLine, br_id, enable, funcName))
             except:
                 self.logger.info("exception: '%s'", sys.exc_info()[0])
         # end-for
@@ -176,8 +213,21 @@ class Breakpoint(Model):
 
 
     def handle_act(self, data: BaseData):
-        self.logger.info(f"{data}")
+        if data._name in self._acts:
+            self._acts[data._name](data)
+        else:
+            self.logger.info(f"ignore {data._name}")
 
+
+    def act_loadbreak(self, data: BaseData):
+        if not self.store.Load():
+            self.logger.info(f"Empty breakpoints!")
+            return
+        self.store.bpointsById = {}
+        for aBp in self.store.bpointsByCmdStr.values():
+            self._newadd_bp = aBp
+            aBp.status = DataObjBreakpoint.status_init
+            cook_breakpoint(aBp)
 
 
 class Store(Common):
@@ -192,24 +242,51 @@ class Store(Common):
         self.bp_idfiles = {}
         self.api = None
 
+    @staticmethod
+    def serialize(obj):
+        """JSON serializer for objects not serializable by default json code"""
+
+        if isinstance(obj, date):
+            serial = obj.isoformat()
+            return serial
+
+        if isinstance(obj, time):
+            serial = obj.isoformat()
+            return serial
+
+        return obj.__dict__
+
 
     def Save(self):
         # Writing JSON data
-        save_dict = {
-                'ById': self.bpointsById,
-                'ByCmdstr': self.bpointsByCmdStr,
-                }
-        with open(Common.gdb_file_bp_fromctrl, 'w') as f:
-            json.dump(save_dict, f)
+        with open(Common.gdb_file_bp_fromctrl, 'w') as outfile:
+            json.dump(self.bpointsByCmdStr, outfile, default=lambda o: o.__dict__, indent=4)
 
 
     def Load(self):
-        with open(filename, 'r') as f:
-            save_dict = json.load(f)
-            if 'ById' in save_dict:
-                self.bpointsById = save_dict.get('ById')
-            if 'ByCmdstr' in save_dict:
-                self.bpointsByCmdStr = save_dict.get('ByCmdstr')
+        try:
+            if not os.path.isfile(Common.gdb_file_bp_fromctrl):
+                return False
+            with open(Common.gdb_file_bp_fromctrl, 'r') as f:
+                self.bpointsByCmdStr = json.load(f)
+                return True
+        except:
+            self.logger.info("Error parser file: '%s'", sys.exc_info()[0])
+
+
+    @staticmethod
+    def LoadBreakpionts(obj):
+        json_obj = None
+        try:
+            if not os.path.isfile(Common.gdb_file_bp_fromctrl):
+                obj.logger.debug(f"Load json fail: no file '{Common.gdb_file_bp_fromctrl}'")
+                return None
+            with open(Common.gdb_file_bp_fromctrl, 'r') as f:
+                json_obj = json.load(f)
+                #obj.logger.debug(f"Load json: {json_obj}")
+                return
+        finally:
+            return json_obj
 
 
     def findByCmdStr(self, cmdstr: str):
@@ -236,6 +313,10 @@ class Store(Common):
     def delete(self, bp):
         del self.bpointsById[bp.bp_id]
         del self.bpointsByCmdStr[bp.cmdstr]
+
+    def deleteAll(self):
+        self.bpointsById = {}
+        self.bpointsByCmdStr = {}
 
     def update(self, newBp):
         oldBp = self.findById(newBp.bp_id)

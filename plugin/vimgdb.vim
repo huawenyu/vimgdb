@@ -28,8 +28,9 @@ if !exists("s:init")
 
     let s:breakpoints = {}
     let s:toggle_all = 0
-    let s:gdb_bt_qf = '/tmp/vimgdb.bt'
-    let s:gdb_break_qf = '/tmp/vimgdb.break'
+    " @todo set from python side
+    let s:vimqf_backtrace = '/tmp/vimgdb.bt'
+    let s:vimqf_breakpoint = '/tmp/vimgdb.bp'
     let s:brk_file = './.gdb.break'
     let s:fl_file = './.gdb.file'
     let s:file_list = {}
@@ -41,7 +42,7 @@ endif
 
 let s:prototype = {}
 let s:this = s:prototype
-let s:this.debug_mode = 0        | " debug_mode: 0 local, 1 connect server, 2 attach pid
+let s:this.gdbMode = 0        | " gdbMode: 0 local, 1 connect server, 2 attach pid
 let s:this.debug_bin  = 't1'
 let s:this.debug_server = ["127.0.0.1", "9999"]
 let s:this.debug_args = {}
@@ -63,9 +64,9 @@ function! s:prototype.Kill()
     call self.Map('client', "unmap")
     call self.Update_current_line_sign(0)
 
-    if self.debug_mode == 0
+    if self.gdbMode == 0
         call new#util#post('client', "quit\n")
-    elseif self.debug_mode == 1
+    elseif self.gdbMode == 1
         call new#util#post('client', "monitor exit\n")
     endif
 endfunction
@@ -86,10 +87,11 @@ function! s:prototype.Update_current_line_sign(add)
     let old_line_sign_id = get(self, '_line_sign_id', 4999)
     let self._line_sign_id = old_line_sign_id == 4999 ? 4998 : 4999
     if a:add && self._current_line != -1 && self._current_buf != -1
-        exe 'sign place '. self._line_sign_id. ' name=GdbCurrentLine priority=30 line='
+        exe 'sign place '. self._line_sign_id. ' name=GdbCurrentLine group=vimgdbCursor priority=30 line='
                     \. self._current_line. ' buffer='. self._current_buf
     endif
-    exe 'sign unplace '.old_line_sign_id
+    exe 'sign unplace '.old_line_sign_id. ' group=vimgdbCursor'
+    "exe 'sign unplace * group=vimgdbCursor'
 endfunction
 
 
@@ -170,9 +172,9 @@ function! s:prototype.Breaks2Qf()
         endif
     endfor
 
-    call writefile(split(join(list2, "\n"), "\n"), s:gdb_break_qf)
-    if self._show_breakpoint && filereadable(s:gdb_break_qf)
-        exec "silent lgetfile " . s:gdb_break_qf
+    call writefile(split(join(list2, "\n"), "\n"), s:vimqf_breakpoint)
+    if self._show_breakpoint && filereadable(s:vimqf_breakpoint)
+        exec "silent lgetfile " . s:vimqf_breakpoint
     endif
 endfunction
 
@@ -192,7 +194,7 @@ endfunction
 " @type 0 line-break, 1 function-break
 function! s:prototype.ToggleBreak()
     let filenm = bufname("%")
-    let cur_line = getline('.')
+    let ctx_line = getline('.')
     let linenr = line('.')
     let colnr = col(".")
     let cword = expand("<cword>")
@@ -200,8 +202,8 @@ function! s:prototype.ToggleBreak()
     let fname = fnamemodify(filenm, ':p:.')
     let type = 0
     if s:cur_extension ==# 'py'
-        " echo match("  let cur_line = getline('.')", '\v^(\W*)let')
-        let idx = match(cur_line, '\v^(\W*)def')
+        " echo match("  let ctx_line = getline('.')", '\v^(\W*)let')
+        let idx = match(ctx_line, '\v^(\W*)def')
         if idx >= 0
             let type = 1
         endif
@@ -213,12 +215,12 @@ function! s:prototype.ToggleBreak()
     endif
 
     if type == 1
-        let file_breakpoints = fname .':'.cword
+        let bp_cmdstr = fname .':'.cword
     else
-        let file_breakpoints = fname .':'.linenr
+        let bp_cmdstr = fname .':'.linenr
     endif
 
-    call self.Send(["toggle", file_breakpoints, type, cur_line])
+    call self.Send(["toggle", bp_cmdstr, type, 0, ctx_line])
     return
 
 
@@ -334,7 +336,7 @@ function! s:prototype.on_start(model, state, match_list) abort
     let cword = expand("<cword>")
 
 
-    if self.debug_mode == 0
+    if self.gdbMode == 0
         let self._show_backtrace = g:neobugger_local_backtrace
         let self._show_breakpoint = g:neobugger_local_breakpoint
     else
@@ -355,14 +357,14 @@ function! s:prototype.on_start(model, state, match_list) abort
     endif
 
     if g:gdb_auto_run
-        if self.debug_mode == 0
+        if self.gdbMode == 0
             if s:cur_extension ==# 'py'
                 call new#util#post('client', "where\n")
             else
                 call new#util#post('client', "start\n")
                 call new#util#post('client', "parser_echo neobugger_local_start\n")
             endif
-        elseif self.debug_mode == 1
+        elseif self.gdbMode == 1
             " server: dut.py -h dut -u admin -p "" -t "gdb:wad"
             call new#util#post('server', ''. g:neogdb_gdbserver . ' -h '. self.debug_server[0] . ' '. join(self.debug_args['args'][1:], ' '). "\n")
             "call new#util#post('client', "target remote ". join(self.debug_server, ":"). "\n")
@@ -371,19 +373,19 @@ function! s:prototype.on_start(model, state, match_list) abort
 
     " Create quickfix: lgetfile, cgetfile
     if self._show_backtrace && win_gotoid(g:vmwRuntime.wid_main) == 1
-        if !filereadable(s:gdb_bt_qf)
+        if !filereadable(s:vimqf_backtrace)
             exec "silent! vimgrep " . cword ." ". expand("%")
         else
-            "exec "silent cgetfile " . s:gdb_bt_qf
+            "exec "silent cgetfile " . s:vimqf_backtrace
         endif
         silent! copen
     endif
 
     if self._show_breakpoint && win_gotoid(g:vmwRuntime.wid_main) == 1
-        if !filereadable(s:gdb_break_qf)
+        if !filereadable(s:vimqf_breakpoint)
             exec "silent! lvimgrep " . cword ." ". expand("%")
         else
-            exec "silent lgetfile " . s:gdb_break_qf
+            exec "silent lgetfile " . s:vimqf_breakpoint
         endif
         silent! lopen
     endif
@@ -464,7 +466,7 @@ function! NeobuggerNew(mode, bin, args)
     let l:__func__ = "NeobuggerNew() "
 
     " mode: 0 local, 1 connect server, 2 attach pid
-    let s:this.debug_mode = 0
+    let s:this.gdbMode = 0
     let s:this.debug_bin = a:bin
     let s:this.debug_args = a:args
 
@@ -480,17 +482,17 @@ function! NeobuggerNew(mode, bin, args)
     endif
 
     if a:mode ==# 'local'
-        let s:this.debug_mode = 0
+        let s:this.gdbMode = 0
         if g:neobugger_local_backtrace
             call new#open('gdb_local_horiz')
         else
             call new#open('gdb_local_vert')
         endif
     elseif a:mode ==# 'server'
-        let s:this.debug_mode = 1
+        let s:this.gdbMode = 1
         call new#open('gdb_remote_horiz')
     elseif a:mode ==# 'pid'
-        let s:this.debug_mode = 2
+        let s:this.gdbMode = 2
     endif
 endfunction
 
@@ -680,26 +682,6 @@ endif
 
 
 
-" Helper options {{{1
-" call VimGdb('local', 't1')
-" call VimGdb('remote', 'sysinit/init')
-let s:gdb_command_state = 0
-let s:cur_extension = ''
-function! NeobuggerCommandStr()
-    let s:cur_extension = expand('%:e')
-    if s:cur_extension ==# 'py'
-        return 'Nbgdb '. fnamemodify(expand("%"), ":~:.")
-    else
-        if s:gdb_command_state
-            let s:gdb_command_state = 0
-            return 'Nbgdbattach '. g:neogdb_attach_remote_str
-        else
-            let s:gdb_command_state = 1
-            return 'Nbgdb '. expand('%:t:r')
-        endif
-    endif
-endfunction
-
 "Returns the visually selected text
 function! VimGdb_get_visual_selection()
     "Shamefully stolen from http://stackoverflow.com/a/6271254/794380
@@ -740,10 +722,10 @@ endfunction
 function! VimGdbViewBtrace()
     " Create quickfix: lgetfile, cgetfile
     if s:this._show_backtrace && win_gotoid(s:this._wid_main) == 1
-        if !filereadable(s:gdb_bt_qf)
+        if !filereadable(s:vimqf_backtrace)
             exec "silent! vimgrep " . cword ." ". expand("%")
         else
-            exec "silent cgetfile " . s:gdb_bt_qf
+            exec "silent cgetfile " . s:vimqf_backtrace
         endif
         "call utilquickfix#RelativePath()
         silent! copen
@@ -752,12 +734,13 @@ endfunction
 
 function! VimGdbViewBpoint()
     if s:this._show_breakpoint && win_gotoid(s:this._wid_main) == 1
-        if !filereadable(s:gdb_break_qf)
+        if !filereadable(s:vimqf_breakpoint)
             exec "silent! lvimgrep " . cword ." ". expand("%")
         else
-            exec "silent lgetfile " . s:gdb_break_qf
+            exec "silent lgetfile " . s:vimqf_breakpoint
         endif
         silent! lopen
+        call win_gotoid(s:this._wid_main)
     endif
 endfunction
 
@@ -783,6 +766,14 @@ function! VimGdbSign(file, line, signid, signgroup, signname)
 endfunction
 
 
+function! VimGdbNewBreak(bp_id, cmdstr)
+    call s:this.Send(["toggle", a:cmdstr, 10, a:bp_id, '?'])
+endfunction
+
+function! VimGdbFakeCmd(...)
+    call s:this.Send(a:000)
+endfunction
+
 function! VimGdbInit()
     call s:this.Init()
     call s:this.on_open()
@@ -793,3 +784,27 @@ function! VimGdbClose()
 endfunction
 
 
+
+" Helper options {{{1
+" call VimGdb('local', 't1')
+" call VimGdb('remote', 'sysinit/init')
+let s:gdb_command_state = 0
+let s:cur_extension = ''
+function! VimGdbCommandStr()
+    let s:cur_extension = expand('%:e')
+    if s:cur_extension ==# 'py'
+        return "call VimGdb('python', '". fnamemodify(expand("%"), ":~:."). "')"
+    else
+        if s:gdb_command_state
+            let s:gdb_command_state = 0
+            return "call VimGdb('remote', '". g:neogdb_attach_remote_str. "')"
+        else
+            let s:gdb_command_state = 1
+            return "call VimGdb('local', '". expand('%:t:r'). "')"
+        endif
+    endif
+endfunction
+
+nnoremap <F2> :<c-u><C-\>e VimGdbCommandStr()<cr>
+cnoremap <F2> :<c-u><C-\>e VimGdbCommandStr()<cr>
+"}}}

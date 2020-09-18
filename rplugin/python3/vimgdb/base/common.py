@@ -2,6 +2,7 @@
 
 import logging
 import hashlib
+import json
 
 
 class BaseCommon:
@@ -22,6 +23,7 @@ class BaseCommon:
 class Common(BaseCommon):
     """Common part of all classes with convenient constructor."""
 
+    # So far vimgdb share the same file, means multiple-gdb may cause issue.
     md5_coll              = {}
     vimsign_break_max     = 0
     vimsign_group_breakp  = 'vimgdbBreakp'
@@ -34,15 +36,15 @@ class Common(BaseCommon):
     gdb_output            = '/tmp/vimgdb.gdb'
     gdbserver_output      = '/tmp/vimgdb.gdbserver'
 
-    gdb_bt_qf             = '/tmp/vimgdb.bt'
-    gdb_break_qf          = '/tmp/vimgdb.qf_bp'
+    vimqf_backtrace       = '/tmp/vimgdb.bt'
+    vimqf_breakpoint      = '/tmp/vimgdb.bp'
     gdb_tmp_break         = './.gdb.infobreak'
     #gdb_tmp_break         = '/tmp/vimgdb.infobreak'
 
     gdb_file_infolocal    = "/tmp/vimgdb.var"
     gdb_file_vimleave     = "/tmp/vimLeave"
     gdb_file_bp_fromgdb   = "./.gdb.break"
-    gdb_file_bp_fromctrl   = "./.gdb.breakctrl"
+    gdb_file_bp_fromctrl  = "./.gdb.breakctrl"
     gdb_anchor_breakpoint = "_@breakpoint@_"
 
     def __init__(self, common):
@@ -61,3 +63,6 @@ class Common(BaseCommon):
             Common.md5_coll[fName] = digest
             return True
 
+    @staticmethod
+    def json_out(obj):
+        return json.dumps(obj, default=lambda o: o.__dict__, indent=4)

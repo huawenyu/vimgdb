@@ -28,85 +28,93 @@ class GdbStateInit(State):
         from pprint import pformat
         return pformat(vars(self), indent=4, width=1)
 
-    def __init__(self):
-        global thisModule
-        super().__init__(thisModule.common,
-                thisModule.context,
-                GdbState.INIT)
+    def __init__(self, common: Common, name: str, model: Model, ctx: Controller):
+        super().__init__(common, name, model, ctx)
 
         self._patts = [
                 Pattern(rePatts = [
-                        State.pat_shell_prompt,
-                        State.pat_gdb_prompt1,
-                        State.pat_gdb_prompt2,
+                        State.pat_server_listen,
                         ],
-                    hint = 'start shell',
-                    actionCb = self.on_open,
-                    nextState = GdbState.START,),
+                    hint = 'Listen on',
+                    actionCb = self.on_listen,
+                    nextState = GdbState.START,
+                    ),
                 ]
 
-    def on_open(self, line):
-        self.logger.info("run to main")
-        self._context.vimgdb.tmux_pane_gdb.send_keys("br main", suppress_history=True)
-        self._context.vimgdb.tmux_pane_gdb.send_keys("run", suppress_history=True)
+    def on_listen(self, line):
+        port = self._rematch.group(1)
+        self._ctx.gdbserverPort = port
+        self.logger.info(f"gdbserver :{port} --attach <pid>")
+        self.logger.info(f"Waiting gdb-client: target remote <host>:{port}")
+        self._ctx.handle_evts(DataEvtParam1("evtGdbserverOnListen", port))
 
     def handle_cmd(self, cmd):
         self.logger.info("handle_cmd: {%s}", cmd)
 
+
+
 class GdbStateStart(State):
 
-    def __init__(self):
-        global thisModule
-        super().__init__(thisModule.common,
-                thisModule.context,
-                GdbState.START)
+    def __init__(self, common: Common, name: str, model: Model, ctx: Controller):
+        super().__init__(common, name, model, ctx)
 
         self._patts = [
                 Pattern(rePatts = [
-                        State.pat_jumpfile,
-                        State.pat_jumpfile2,
-                        State.pat_jumpfile3,
+                        State.pat_server_remote_from,
                         ],
-                    hint = 'Jumpfile',
-                    actionCb = self.on_jump,
-                    nextState = GdbState.SAME,),
-                Pattern(rePatts = [
-                        State.pat_parsebreakpoint,
-                        ],
-                    hint = 'ParseBreakpoint',
-                    actionCb = self.on_parsebreak,
-                    nextState = GdbState.SAME,),
+                    hint = 'Accept connect from gdb-client',
+                    actionCb = self.on_accept,
+                    nextState = GdbState.CONN_SUCC,
+                    ),
                 ]
 
-    def on_jump(self, line):
-        jumpfile = '/' + self._rematch.group(1)
-        jumpline = self._rematch.group(2)
-        self.logger.info("%s:%s", jumpfile, jumpline)
-        #self._context.vimgdb.vim.command("e " + jumpfile  + ":" + jumpline)
-        #self._context.vimgdb.vim.asyn_call("VimGdbJump", jumpfile, jumpline)
+    def on_accept(self, line):
+        self.logger.info("{line}")
+        pass
 
-        #self._context.vimgdb.vim.funcs.VimGdbJump(jumpfile, jumpline)
-        #self._context.vimgdb._wrap_async(
-        #        self._context.vimgdb.vim.funcs.VimGdbJump)(
-        #                jumpfile, jumpline)
-        self._context.vimgdb._wrap_async(
-                self._context.vimgdb.vim.eval)(
-                        "VimGdbJump('" + jumpfile + "', " + jumpline + ")")
 
-    def on_parsebreak(self, line):
-        jumpfile = '/' + self._rematch.group(1)
-        jumpline = self._rematch.group(2)
-        self.logger.info("%s:%s", jumpfile, jumpline)
-        #self._context.vimgdb.vim.command("e " + jumpfile  + ":" + jumpline)
-        #self._context.vimgdb.vim.asyn_call("VimGdbJump", jumpfile, jumpline)
+class GdbStateConnSucc(State):
 
-        #self._context.vimgdb.vim.funcs.VimGdbJump(jumpfile, jumpline)
-        #self._context.vimgdb._wrap_async(
-        #        self._context.vimgdb.vim.funcs.VimGdbJump)(
-        #                jumpfile, jumpline)
-        self._context.vimgdb._wrap_async(
-                self._context.vimgdb.vim.eval)(
-                        "VimGdbJump('" + jumpfile + "', " + jumpline + ")")
+    def __repr__(self):
+        from pprint import pformat
+        return pformat(vars(self), indent=4, width=1)
+
+    def __init__(self, common: Common, name: str, model: Model, ctx: Controller):
+        super().__init__(common, name, model, ctx)
+
+        self._patts = [
+                Pattern(rePatts = [
+                        State.pat_remote_err,
+                        State.pat_remote_close,
+                        State.pat_client_exit,
+                        State.pat_client_close
+                        ],
+                    hint = 'Connection closed',
+                    actionCb = self.on_connect_close,
+                    nextState = GdbState.INIT,
+                    ),
+                Pattern(rePatts = [
+                        State.pat_server_listen,
+                        ],
+                    hint = 'Listen on',
+                    actionCb = self.on_listen,
+                    nextState = GdbState.START,
+                    ),
+                ]
+
+    def on_connect_close(self, line):
+        self.logger.info(f"{line}")
+
+    def handle_cmd(self, cmd):
+        self.logger.info(f"{cmd}")
+
+    def on_listen(self, line):
+        port = self._rematch.group(1)
+        self._ctx.gdbserverPort = port
+        self.logger.info(f"gdbserver :{port} --attach <pid>")
+        self.logger.info(f"Waiting gdb-client: target remote <host>:{port}")
+        self._ctx.handle_evts(DataEvtParam1("evtGdbserverOnListen", port))
+
 
 
 class GdbServer(Model):
@@ -115,12 +123,12 @@ class GdbServer(Model):
 
         # Cache all state, no need create it everytime
         self._StateColl = {
-                GdbState.INIT:      GdbStateInit(),
-                GdbState.START:     GdbStateStart(),
-                GdbState.TARGET:    GdbStateStart(),
-                GdbState.CONN_SUCC: GdbStateStart(),
-                GdbState.PAUSE:     GdbStateStart(),
-                GdbState.RUN:       GdbStateStart(),
+                GdbState.INIT:      GdbStateInit(common, GdbState.INIT, self, ctx),
+                GdbState.START:     GdbStateStart(common, GdbState.START, self, ctx),
+                GdbState.TARGET:    GdbStateStart(common, GdbState.TARGET, self, ctx),
+                GdbState.CONN_SUCC: GdbStateConnSucc(common, GdbState.CONN_SUCC, self, ctx),
+                GdbState.PAUSE:     GdbStateStart(common, GdbState.PAUSE, self, ctx),
+                GdbState.RUN:       GdbStateStart(common, GdbState.RUN, self, ctx),
                 }
 
         self._win = win
@@ -159,6 +167,10 @@ class GdbServer(Model):
 
 
     def handle_act(self, data: BaseData):
-        self.logger.info(f"{data}")
+        if self._state and data._name in self._state._acts:
+            self.logger.info(f"{data._name}()")
+            self._state._acts[data._name](data)
+        else:
+            self.logger.info(f"ignore {data._name}()")
 
 

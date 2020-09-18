@@ -162,7 +162,7 @@ class Win(Common):
         #        self._context.vimgdb.vim.funcs.VimGdbJump)(
         #                jumpfile, jumpline)
 
-        vimCmdstr = "VimGdbJump('" + data.fName + "', " + data.fLine + ")"
+        vimCmdstr = f"VimGdbJump('{data.fName}', {data.fLine})"
         self.logger.debug(f"{vimCmdstr}")
         self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
 
@@ -186,10 +186,7 @@ class Win(Common):
         self.break_sign_end = 5000
 
     def view_ClearAllBreak2(self, data: BaseData):
-        vimCmdstr = "VimGdbClearSign(" \
-                + str(self.break_sign_begin) + ", " \
-                + str(self.break_sign_end) \
-                + ")"
+        vimCmdstr = f"VimGdbClearSign({self.break_sign_begin}, {self.break_sign_end})"
         self.logger.debug(f"{vimCmdstr}")
         self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
 
@@ -208,15 +205,7 @@ class Win(Common):
         else:
             vimSignName = f'GdbBreakpointDis{self.break_idx}'
 
-        vimCmdstr = "VimGdbSign('" \
-                + data.fName + "', " \
-                + str(data.fLine) + ", " \
-                + str(self.break_sign_end) + ", " \
-                + "'" + Common.vimsign_group_breakp + "'," \
-                + "'" + vimSignName + "'" \
-                + ")"
-
-
+        vimCmdstr = f"VimGdbSign('{data.fName}', {data.fLine}, {self.break_sign_end}, '{Common.vimsign_group_breakp}', '{vimSignName}')"
         #self.vim.call('sign_place', sign_id, 'NvimGdb', sign_name, buf,
         #              {'lnum': line, 'priority': 10})
 

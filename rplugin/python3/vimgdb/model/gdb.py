@@ -7,10 +7,11 @@ from libtmux.window import Window
 
 from vimgdb.base.common import Common
 from vimgdb.base.data import *
-from vimgdb.base.controller import Controller
+from vimgdb.base.controller import Controller, GdbMode
 from vimgdb.model.model import Model
 from vimgdb.model.state import State
 from vimgdb.model.pattern import Pattern
+from vimgdb.model.breakpoint import Store
 
 
 class GdbState:
@@ -62,20 +63,28 @@ class GdbStateStart(State):
 
         self._patts = [
                 Pattern(rePatts = [
-                        State.pat_jumpfile,
-                        State.pat_jumpfile2,
-                        State.pat_jumpfile3,
-                        ],
+                    State.pat_jumpfile,
+                    State.pat_jumpfile2,
+                    State.pat_jumpfile3,
+                    ],
                     hint = 'Jumpfile',
                     actionCb = self.on_jump,
-                    nextState = GdbState.SAME,),
-
+                    nextState = GdbState.SAME,
+                    ),
                 Pattern(rePatts = [
-                        State.pat_parsebreakpoint,
-                        ],
+                    State.pat_parsebreakpoint,
+                    ],
                     hint = 'ParseGdbBreakFile',
                     actionCb = self.on_parsebreak,
-                    nextState = GdbState.SAME,),
+                    nextState = GdbState.SAME,
+                    ),
+                Pattern(rePatts = [
+                    State.pat_continue,
+                    ],
+                    hint = 'Continue',
+                    actionCb = self.on_running,
+                    nextState = GdbState.RUN,
+                    ),
                 ]
 
         self._cmds = {
@@ -103,8 +112,8 @@ class GdbStateStart(State):
 
 
     def update_view(self):
-        self.logger.debug(self.gdb_bt_qf)
-        btrace = self.gdb_bt_qf
+        self.logger.debug(self.vimqf_backtrace)
+        btrace = self.vimqf_backtrace
         self._ctx.vimgdb._wrap_async(
                 self._ctx.vimgdb.vim.eval)(
                         "VimGdbUpViewBtrace('" + btrace + "')")
@@ -114,13 +123,19 @@ class GdbStateStart(State):
         jumpfile = self._rematch.group(1)
         jumpline = self._rematch.group(2)
         self.logger.info("%s:%s", jumpfile, jumpline)
-        if Common.check_content(Common.gdb_bt_qf):
+        if Common.check_content(Common.vimqf_backtrace):
             self._ctx.handle_shows(DataEvent("viewUpdateBt"))
         self._ctx.handle_evts(DataEvtCursor("evtGdbOnJump", jumpfile, jumpline))
 
     def on_parsebreak(self, line):
         self.logger.info("Prepare parse breakpoint file")
         self._ctx.handle_evts(DataEvent("evtRefreshBreakpt"))
+
+
+    def on_running(self, line):
+        self.logger.info("Should clear context")
+        # Cause the cursor not sign
+        self._ctx._wrap_async(self._ctx.vim.call)('sign_unplace', f'{Common.vimsign_group_cursor}')
 
     def cmd_next(self, args):
         self._model.sendkeys("n")
@@ -172,6 +187,45 @@ class GdbStateStart(State):
         assert isinstance(data, DataObjBreakpoint)
         self._model.sendkeys('delete ' + data.bp_id)
 
+
+
+class GdbStateRunning(State):
+
+    def __repr__(self):
+        from pprint import pformat
+        return pformat(vars(self), indent=4, width=1)
+
+
+    def __init__(self, common: Common, name: str, model: Model, ctx: Controller):
+        super().__init__(common, name, model, ctx)
+
+        self._patts = [
+                Pattern(rePatts = [
+                    State.pat_jumpfile,
+                    State.pat_jumpfile2,
+                    State.pat_jumpfile3,
+                    ],
+                    hint = 'Jumpfile',
+                    actionCb = self.on_jump,
+                    nextState = GdbState.START,
+                    ),
+                ]
+
+
+    def on_jump(self, line):
+        jumpfile = self._rematch.group(1)
+        jumpline = self._rematch.group(2)
+        self.logger.info("%s:%s", jumpfile, jumpline)
+        if Common.check_content(Common.vimqf_backtrace):
+            self._ctx.handle_shows(DataEvent("viewUpdateBt"))
+        self._ctx.handle_evts(DataEvtCursor("evtGdbOnJump", jumpfile, jumpline))
+
+
+    def handle_cmd(self, cmd):
+        self.logger.info("handle_cmd: {%s}", cmd)
+
+
+
 class Gdb(Model):
 
     def __init__(self, common: Common, ctx: Controller, win: Window, debug_bin: str, outfile: str):
@@ -181,15 +235,24 @@ class Gdb(Model):
         self._StateColl = {
                 GdbState.INIT:      GdbStateInit(common, GdbState.INIT, self, ctx),
                 GdbState.START:     GdbStateStart(common, GdbState.START, self, ctx),
+                GdbState.RUN:       GdbStateRunning(common, GdbState.RUN, self, ctx),
                 GdbState.TARGET:    GdbStateStart(common, GdbState.TARGET, self, ctx),
                 GdbState.CONN_SUCC: GdbStateStart(common, GdbState.CONN_SUCC, self, ctx),
                 GdbState.PAUSE:     GdbStateStart(common, GdbState.PAUSE, self, ctx),
-                GdbState.RUN:       GdbStateStart(common, GdbState.RUN, self, ctx),
                 }
 
-        self._evts = {
-                "evtGdbOnOpen":     self.evt_GdbOnOpen,
+        self._evts.update({
+                "evtGdbOnOpen":         self.evt_GdbOnOpen,
+                "evtGdbserverOnListen": self.evt_GdbserverOnListen,
+                })
+
+        self._cmds2 = {
+                "notify":     self.cmd_notify,
                 }
+        self._cmds.update(self._cmds2)
+
+        self._acts2 = { }
+        self._acts.update(self._acts2)
 
         self._win = win
         self._pane = win
@@ -226,32 +289,68 @@ class Gdb(Model):
             self.logger.info(f"{data._name}()")
             self._evts[data._name](data)
         else:
-            self.logger.info(f"ignore {data._name}()")
+            self.logger.info(f"Ignore {data._name}()")
+
+
+    def handle_cmd(self, cmdname, args):
+        self.logger.info(f"{cmdname}(args={args})")
+        if self._state and cmdname in self._state._cmds:
+            self._state._cmds[cmdname](args)
+        elif cmdname in self._cmds2:
+            self._cmds2[cmdname](args)
+        else:
+            self.logger.info(f"Ignore ...")
 
 
     def handle_act(self, data: BaseData):
         if self._state and data._name in self._state._acts:
             self.logger.info(f"{data._name}()")
             self._state._acts[data._name](data)
+        elif data._name in self._acts2:
+            self._acts2[data._name](data)
         else:
-            self.logger.info(f"ignore {data._name}()")
-
-
-    def handle_cmd(self, cmdname, args):
-        self.logger.info(f"handle_cmd: {cmdname}(args={args})")
-        if self._state and cmdname in self._state._cmds:
-            self._state._cmds[cmdname](args)
-        else:
-            self.logger.info(f"handle_cmd {cmdname}(args={args}) fail: state is Null")
+            self.logger.info(f"Ignore {data._name}()")
 
 
     def sendkeys(self, cmd: str):
         self._pane.send_keys(cmd, suppress_history=True)
 
 
+    def cmd_notify(self, args):
+        self.logger.info(f"{args}")
+        if args[1] == 'breakdone':
+            if self._ctx.gdbMode == GdbMode.LOCAL:
+                # local auto run
+                self._pane.send_keys("run", suppress_history=True)
+
+
     def evt_GdbOnOpen(self, data: BaseData):
-        self.logger.info("null")
-        self._pane.send_keys("br main", suppress_history=True)
-        self._pane.send_keys("run", suppress_history=True)
+        bp_id = 0
+        bpsDict = Store.LoadBreakpionts(self)
+        if bpsDict:
+            #self.logger.info(f"{data._name}: {bpsDict}")
+            # Reload breakpoints: bind by id
+            for cmdstr in bpsDict.keys():
+                vimCmdstr = f"VimGdbNewBreak({bp_id+1}, '{cmdstr}')"
+                self.logger.debug(f"{vimCmdstr}")
+                bp_id += 1
+                self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
+        else:
+            self.logger.info("No saved breakponts!")
+
+        if bp_id > 0:
+            vimCmdstr = f"VimGdbFakeCmd('notify', 'breakdone', {bp_id})"
+            self.logger.debug(f"{vimCmdstr}")
+            self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
+        elif self._ctx.gdbMode == GdbMode.LOCAL:
+            self._ctx._wrap_async(self._ctx.vim.eval)(f"VimGdbNewBreak(1, 'main')")
+            self._ctx._wrap_async(self._ctx.vim.eval)(f"VimGdbFakeCmd('notify', 'breakdone', 1)")
+
+
+    def evt_GdbserverOnListen(self, data: BaseData):
+        assert isinstance(data, DataEvtParam1)
+        self.logger.info(f"Connect to {data.param1}")
+        if self._ctx.gdbMode == GdbMode.REMOTE:
+            self._pane.send_keys(f"target remote dut:{data.param1}", suppress_history=True)
 
 

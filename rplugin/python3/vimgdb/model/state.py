@@ -38,6 +38,9 @@ class State(Common, ABC):
 
     pat_remote_err          = ("remoteErr", re.compile(r'^Remote communication error\.  Target disconnected\.:'))
     pat_remote_close        = ("remoteClose", re.compile(r'^Remote connection closed\.'))
+    pat_client_exit         = ("clientExit", re.compile(r'^Child exited with status \d+'))
+    pat_client_close        = ("clientExit", re.compile(r'^client connection closed'))
+
 
     pat_no_prog_run         = ("noProgRun", re.compile(r'^The program is not being run\.'))
 
@@ -73,7 +76,7 @@ class State(Common, ABC):
     # gdbserver {{{2
     pat_server_listen       = ("listen", re.compile(r'^Listening on port (\d+)'))
     pat_server_detach       = ("detach", re.compile(r'^Detaching from process \d+'))
-    pat_server_remote_from  = ("remoteFrom", re.compile(r'^Remote debugging from host \d+\.\d+\.\d+\.\d+:\d+'))
+    pat_server_remote_from  = ("remoteFrom", re.compile(r'^Remote debugging from host \d+\.\d+\.\d+\.\d+'))
 
     # "127.0.0.1:444: Connection timed out.",
     # "dut:444: Connection timed out.",
@@ -91,7 +94,10 @@ class State(Common, ABC):
         self._ctx = ctx
         self._patts = []
         self._rematch = None
+
         self._cmds = {}
+        self._acts = {}
+        self._evts = {}
 
     def on_dummy(self):
         pass
