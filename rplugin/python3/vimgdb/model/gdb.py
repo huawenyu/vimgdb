@@ -85,8 +85,11 @@ class GdbStateStart(State):
                 "finish":   self.cmd_finish,
                 "skip":     self.cmd_skip,
                 "print":    self.cmd_print,
+                "whatis":   self.cmd_whatis,
                 "runto":    self.cmd_runto,
                 "break":    self.cmd_break,
+                "up":       self.cmd_frameup,
+                "down":     self.cmd_framedown,
                 }
         model._cmds.update(self._cmds)
 
@@ -111,6 +114,8 @@ class GdbStateStart(State):
         jumpfile = self._rematch.group(1)
         jumpline = self._rematch.group(2)
         self.logger.info("%s:%s", jumpfile, jumpline)
+        if Common.check_content(Common.gdb_bt_qf):
+            self._ctx.handle_shows(DataEvent("viewUpdateBt"))
         self._ctx.handle_evts(DataEvtCursor("evtGdbOnJump", jumpfile, jumpline))
 
     def on_parsebreak(self, line):
@@ -133,7 +138,16 @@ class GdbStateStart(State):
         self._model.sendkeys("skip")
 
     def cmd_print(self, args):
-        self._model.sendkeys("print")
+        self._model.sendkeys("p " + args[1])
+
+    def cmd_whatis(self, args):
+        self._model.sendkeys("whatis " + args[1])
+
+    def cmd_frameup(self, args):
+        self._model.sendkeys("up")
+
+    def cmd_framedown(self, args):
+        self._model.sendkeys("down")
 
     def cmd_runto(self, args):
         self._model.sendkeys("tbreak " + args[1])

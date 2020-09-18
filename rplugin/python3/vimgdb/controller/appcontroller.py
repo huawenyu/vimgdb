@@ -112,6 +112,28 @@ class AppController(Controller):
         self.tmux_win.select_layout('main-vertical')
 
 
+    def _define_vimsigns(self):
+        # Define the sign for current line the debugged program is executing.
+        self.vim.call('sign_define', 'GdbCurrentLine',
+                {'text': self.vim.vars['vimgdb_sign_currentline'],
+                 'texthl': self.vim.vars['vimgdb_sign_currentline_color']})
+
+        # Define signs for the breakpoints.
+        breaks = self.vim.vars['vimgdb_sign_breakpoints']
+        for i, brk in enumerate(breaks):
+            #sign define GdbBreakpointEn  text=● texthl=Search
+            #sign define GdbBreakpointDis text=● texthl=Function
+            #sign define GdbBreakpointDel text=● texthl=Comment
+
+            self.vim.call('sign_define', f'GdbBreakpointEn{i+1}',
+                    {'text': brk,
+                     'texthl': self.vim.vars['vimgdb_sign_breakp_color_en']})
+            self.vim.call('sign_define', f'GdbBreakpointDis{i+1}',
+                    {'text': brk,
+                     'texthl': self.vim.vars['vimgdb_sign_breakp_color_dis']})
+            Common.vimsign_break_max += 1
+
+
     def run(self, args):
         self.logger.info("args=%s", args)
         arg_n = len(args)
@@ -161,6 +183,7 @@ class AppController(Controller):
         # self.tmux_pane_vim.clear()
         # self.tmux_pane_vim.send_keys("nvim " + self.file, suppress_history=True)
         self.vim.funcs.VimGdbInit()
+        self._define_vimsigns()
 
         # Create model Cursor:
         _model = Cursor(self._common, self)
@@ -188,4 +211,3 @@ class AppController(Controller):
             self.logger.error("VimGdb mode=%s not exist.", self.debug_mode)
 
         return
-

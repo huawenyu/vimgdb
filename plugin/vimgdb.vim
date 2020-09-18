@@ -8,14 +8,14 @@ if !exists("s:init")
     let s:module = "vimgdb"
     silent! let s:log = logger#getLogger(expand('<sfile>:t'))
 
-    sign define GdbBreakpointEn  text=● texthl=Search
-    sign define GdbBreakpointDis text=● texthl=Function
-    sign define GdbBreakpointDel text=● texthl=Comment
+    "sign define GdbBreakpointEn  text=● texthl=Search
+    "sign define GdbBreakpointDis text=● texthl=Function
+    "sign define GdbBreakpointDel text=● texthl=Comment
 
-    sign define GdbCurrentLine   text=☛ texthl=Error
-    "sign define GdbCurrentLine text=▶ texthl=Error
-    "sign define GdbCurrentLine text=☛ texthl=Keyword
-    "sign define GdbCurrentLine text=⇒ texthl=String
+    "sign define GdbCurrentLine   text=☛ texthl=Error
+    ""sign define GdbCurrentLine text=▶ texthl=Error
+    ""sign define GdbCurrentLine text=☛ texthl=Keyword
+    ""sign define GdbCurrentLine text=⇒ texthl=String
 
     set errorformat+=#%c\ \ %.%#\ in\ %m\ \(%.%#\)\ at\ %f:%l
     set errorformat+=#%c\ \ %.%#\ in\ \ \ \ %m\ \ \ \ at\ %f:%l
@@ -86,7 +86,7 @@ function! s:prototype.Update_current_line_sign(add)
     let old_line_sign_id = get(self, '_line_sign_id', 4999)
     let self._line_sign_id = old_line_sign_id == 4999 ? 4998 : 4999
     if a:add && self._current_line != -1 && self._current_buf != -1
-        exe 'sign place '. self._line_sign_id. ' name=GdbCurrentLine line='
+        exe 'sign place '. self._line_sign_id. ' name=GdbCurrentLine priority=30 line='
                     \. self._current_line. ' buffer='. self._current_buf
     endif
     exe 'sign unplace '.old_line_sign_id
@@ -268,6 +268,47 @@ function! s:prototype.Step()
     call self.Send("step")
 endfunction
 
+function! s:prototype.Eval(expr)
+    if g:neobugger_smart_eval
+        " Enable smart-eval base-on the special project
+        let s:eval_mode = 1
+        let s:expr = a:expr
+        call self.Send(['whatis', a:expr])
+    else
+        call self.Send(['print', a:expr])
+    endif
+endfunction
+
+" Enable smart-eval base-on the special project
+function! s:prototype.Whatis(type)
+    if g:neobugger_smart_eval
+        let s:eval_mode = 0
+    else
+        return
+    endif
+
+    if has_key(self, 'Symbol')
+        silent! call s:log.trace("forward to getsymbol")
+        let expr = self.Symbol(a:type, s:expr)
+        call self.Send(expr)
+    else
+        call self.Send(printf('p %s', s:expr))
+    endif
+    let s:expr = ""
+endfunction
+
+
+function! s:prototype.Watch(expr)
+    let l:__func__ = s:module. ":watch() "
+    let expr = a:expr
+    if expr[0] != '&'
+        let expr = '&' . expr
+    endif
+
+    let s:eval_mode = 2
+    silent! call s:log.debug(l:__func__, expr)
+    call self.Eval(expr)
+endfunction
 
 function! s:prototype.on_open() abort
     let l:__func__ = s:module. ":on_open() "
@@ -347,14 +388,6 @@ function! s:prototype.on_start(model, state, match_list) abort
         silent! lopen
     endif
 
-endfunction
-
-
-function! s:prototype.on_load_bt(file)
-    if self._show_backtrace && filereadable(a:file)
-        exec "cgetfile " . a:file
-        "call utilquickfix#RelativePath()
-    endif
 endfunction
 
 
@@ -495,11 +528,11 @@ command! -nargs=0 GdbRefresh call s:this.Send("info line")
 command! -nargs=0 GdbInfoLocal call s:this.Send("info local")
 command! -nargs=0 GdbInfoBreak call s:this.Send("info break")
 
-command! -nargs=0 GdbEvalWord call s:this.Eval(new#util#get_curr_expression())
-command! -range -nargs=0 GdbEvalRange call s:this.Eval(new#util#get_visual_selection())
+command! -nargs=0 GdbEvalWord call s:this.Eval(VimGdb_get_curr_expression())
+command! -range -nargs=0 GdbEvalRange call s:this.Eval(VimGdb_get_visual_selection())
 
-command! -nargs=0 GdbWatchWord call s:this.Watch(new#util#get_curr_expression())
-command! -range -nargs=0 GdbWatchRange call s:this.Watch(new#util#get_visual_selection())
+command! -nargs=0 GdbWatchWord call s:this.Watch(VimGdb_get_curr_expression())
+command! -range -nargs=0 GdbWatchRange call s:this.Watch(VimGdb_get_visual_selection())
 " }}}
 
 " Keymap options {{{1
@@ -617,7 +650,34 @@ endif
 if !exists("g:neobugger_server_backtrace")
     let g:neobugger_server_backtrace = 1
 endif
+
+" Sign define
+if !exists("g:vimgdb_sign_current")
+    "sign define GdbCurrentLine   text=☛ texthl=Error
+    "sign define GdbCurrentLine text=▶ texthl=Error
+    "sign define GdbCurrentLine text=☛ texthl=Keyword
+    "sign define GdbCurrentLine text=⇒ texthl=String
+
+    let g:vimgdb_sign_currentline = '☛'
+endif
+if !exists("g:vimgdb_sign_current_color")
+    let g:vimgdb_sign_currentline_color = 'Error'
+endif
+if !exists("g:vimgdb_sign_breakpoint")
+    "sign define GdbBreakpointEn  text=● texthl=Search
+    "sign define GdbBreakpointDis text=● texthl=Function
+    "sign define GdbBreakpointDel text=● texthl=Comment
+
+    let g:vimgdb_sign_breakpoints = ['●', '●²', '●³', '●⁴', '●⁵', '●⁶', '●⁷', '●⁸', '●⁹', '●ⁿ']
+endif
+if !exists("g:vimgdb_sign_breakp_color_en")
+    let g:vimgdb_sign_breakp_color_en = 'Search'
+endif
+if !exists("g:vimgdb_sign_breakp_color_dis")
+    let g:vimgdb_sign_breakp_color_dis = 'Function'
+endif
 " }}}
+
 
 
 " Helper options {{{1
@@ -640,43 +700,85 @@ function! NeobuggerCommandStr()
     endif
 endfunction
 
+"Returns the visually selected text
+function! VimGdb_get_visual_selection()
+    "Shamefully stolen from http://stackoverflow.com/a/6271254/794380
+    " Why is this not a built-in Vim script function?!
+    let [lnum1, col1] = getpos("'<")[1:2]
+    let [lnum2, col2] = getpos("'>")[1:2]
+    if lnum1 == lnum2
+        let curline = getline('.')
+        return curline[col1-1:col2-1]
+    else
+        let lines = getline(lnum1, lnum2)
+        let lines[-1] = lines[-1][: col2 - (&selection == 'inclusive' ? 1 : 2)]
+        let lines[0] = lines[0][col1 - 1:]
+        return join(lines, "\n")
+    endif
+endfunction
+
+function! VimGdb_get_curr_expression()
+    let save_cursor = getcurpos()
+
+    let text = getline('.')
+    normal! be
+    let end_pos = getcurpos()
+    call search('\s\|[,;\(\)]','b')
+    call search('\S')
+    let start_pos = getcurpos()
+
+    call setpos('.', save_cursor)
+    return text[ (start_pos[2] -1) : (end_pos[2] - 1)]
+endfunction
+
+
 function! VimGdbJump(file, line)
     call s:this.Jump(a:file, a:line)
 endfunction
 
 
-function! VimGdbClearSign()
-    if s:breakpoint_signid_min == 0
+function! VimGdbViewBtrace()
+    " Create quickfix: lgetfile, cgetfile
+    if s:this._show_backtrace && win_gotoid(s:this._wid_main) == 1
+        if !filereadable(s:gdb_bt_qf)
+            exec "silent! vimgrep " . cword ." ". expand("%")
+        else
+            exec "silent cgetfile " . s:gdb_bt_qf
+        endif
+        "call utilquickfix#RelativePath()
+        silent! copen
+    endif
+endfunction
+
+function! VimGdbViewBpoint()
+    if s:this._show_breakpoint && win_gotoid(s:this._wid_main) == 1
+        if !filereadable(s:gdb_break_qf)
+            exec "silent! lvimgrep " . cword ." ". expand("%")
+        else
+            exec "silent lgetfile " . s:gdb_break_qf
+        endif
+        silent! lopen
+    endif
+endfunction
+
+function! VimGdbClearSign(istart, iend)
+    if a:istart == 0
         return
     endif
 
-    let i = s:breakpoint_signid_min
-    while i <= s:breakpoint_signid_max
+    let i = a:istart
+    while i <= a:iend
         exe 'sign unplace '.i
         let i += 1
     endwhile
 endfunction
 
-function! VimGdbSign(file, line, signid, signtype)
+function! VimGdbSign(file, line, signid, signgroup, signname)
     let buf = bufnr(a:file)
+    "self.vim.call('sign_place', sign_id, 'NvimGdb', sign_name, buf,
+    "              {'lnum': line, 'priority': 10})
     if bufexists(buf)
-        if s:breakpoint_signid_min == 0
-            let s:breakpoint_signid_min = a:signid
-        elseif s:breakpoint_signid_min > a:signid
-            let s:breakpoint_signid_min = a:signid
-        endif
-
-        if s:breakpoint_signid_max == 0
-            let s:breakpoint_signid_max = a:signid
-        elseif s:breakpoint_signid_max < a:signid
-            let s:breakpoint_signid_max = a:signid
-        endif
-
-        if a:signtype == 0
-            exe 'sign place '.a:signid .' name=GdbBreakpointDis line='.a:line.' buffer='.buf
-        else
-            exe 'sign place '.a:signid .' name=GdbBreakpointEn line='.a:line.' buffer='.buf
-        endif
+        exe 'sign place '.a:signid.' group='.a:signgroup .' priority=20 name='.a:signname.' line='.a:line.' buffer='.buf
     endif
 endfunction
 
@@ -691,6 +793,3 @@ function! VimGdbClose()
 endfunction
 
 
-function! VimGdbUpViewBtrace(file)
-    call s:this.on_load_bt(a:file)
-endfunction

@@ -34,22 +34,29 @@ class Controller(Common):
 
 
     def handle_evts(self, data: BaseData):
-        self.logger.info(f"{data._name}")
+        handled = False
         for modelName, model in self.models_coll.items():
             if data._name in model._evts:
-                self.logger.info(f"dispatch to model '{modelName}'")
+                handled = True
+                self.logger.info(f"dispatch {data._name} to model '{modelName}'")
                 model.handle_evt(data)
+        if not handled:
+            self.logger.info(f"Can't handle {data._name}")
 
 
     def handle_acts(self, data: BaseData):
-        self.logger.info(f"{data._name}")
+        handled = False
         for modelName, model in self.models_coll.items():
             if data._name in model._acts:
-                self.logger.info(f"dispatch to model '{modelName}'")
+                handled = True
+                self.logger.info(f"dispatch {data._name} to model '{modelName}'")
                 model.handle_act(data)
+        if not handled:
+            self.logger.info(f"Can't handle {data._name}")
 
 
     def handle_cmds(self, args):
+        handled = False
         self.logger.info(f"{args}")
         if len(args) < 2:
             self.logger.info("VimGdbSend('who', 'command'), but args=%s", args)
@@ -61,8 +68,10 @@ class Controller(Common):
             model = self.models_coll.get(ctxname)
             if model:
                 if type(vimArgs) is str:
+                    handled = True
                     model.handle_cmd(vimArgs, args[1:])
                 elif type(vimArgs) is list and len(vimArgs) > 0:
+                    handled = True
                     model.handle_cmd(vimArgs[0], vimArgs)
                 else:
                     self.logger.info("handle fail: args=%s", args)
@@ -71,20 +80,30 @@ class Controller(Common):
             for modelName, model in self.models_coll.items():
                 if type(vimArgs) is str:
                     if vimArgs in model._cmds:
+                        handled = True
                         self.logger.info(f"dispatch to model '{modelName}'")
                         model.handle_cmd(vimArgs, args[1:])
                 elif type(vimArgs) is list and len(vimArgs) > 0:
                     if vimArgs[0] in model._cmds:
+                        handled = True
                         self.logger.info(f"dispatch to model '{modelName}'")
                         model.handle_cmd(vimArgs[0], vimArgs)
                 else:
                     self.logger.info("handle fail: args=%s", args)
 
+        if not handled:
+            self.logger.info(f"Can't handle {args}")
+
+
     def handle_shows(self, data: BaseData):
+        handled = False
         self.logger.info(f"{data._name}")
         for viewName, view in self.views_coll.items():
+            handled = True
             self.logger.info(f"dispatch to view '{viewName}'")
             view.handle_show(data)
+        if not handled:
+            self.logger.info(f"Can't handle {data._name}")
 
 
     def parser_line(self, line):

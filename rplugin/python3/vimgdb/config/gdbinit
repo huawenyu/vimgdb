@@ -112,24 +112,24 @@ end
 define hookpost-break
 	#save breakpoints /tmp/vimgdb.bp
 	bsave
-	echo neobugger_setbreakpoint\n
+	echo _@breakpoint@_\n
 end
 
 define hookpost-enable
 	#save breakpoints /tmp/vimgdb.bp
 	bsave
-	echo neobugger_setbreakpoint\n
+	echo _@breakpoint@_\n
 end
 
 define hookpost-disable
 	#save breakpoints /tmp/vimgdb.bp
 	bsave
-	echo neobugger_setbreakpoint\n
+	echo _@breakpoint@_\n
 end
 
 define hookpost-delete
 	#save breakpoints /tmp/vimgdb.bp
 	bsave
-	echo neobugger_setbreakpoint\n
+	echo _@breakpoint@_\n
 end
 

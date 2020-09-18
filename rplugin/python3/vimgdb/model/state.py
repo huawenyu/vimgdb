@@ -31,7 +31,7 @@ class State(Common, ABC):
     pat_continue            = ("continue", re.compile(r'^Continuing\.'))
     pat_breakpoint          = ("break", re.compile(r'^Breakpoint \d+'))
     pat_tempbreakpoint      = ("tempbreak", re.compile(r'^Temporary breakpoint \d+'))
-    pat_parsebreakpoint     = ("parsebreak", re.compile(r'^neobugger_setbreakpoint'))
+    pat_parsebreakpoint     = ("parsebreak", re.compile(r'^_@breakpoint@_'))
 
 
     pat_inner_err           = ("innerErr", re.compile(r"\[Inferior\ +.{-}\ +exited\ +normally"))

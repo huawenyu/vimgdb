@@ -19,9 +19,11 @@ class Win(Common):
         super().__init__(common)
 
         self._shows = {
-                "evtGdbOnJump":     self.evt_GdbOnJump,
-                "viewClearAllBreak":   self.view_ClearAllBreak,
-                "viewSignBreak":   self.view_SignBreak,
+                "evtGdbOnJump":      self.evt_GdbOnJump,
+                "viewUpdateBt":      self.view_UpdateBacktrace,
+                "viewUpdateBp":      self.view_UpdateBreakpoint,
+                "viewClearAllBreak": self.view_ClearAllBreak,
+                "viewSignBreak":     self.view_SignBreak,
                 }
 
         self._ctx = ctx
@@ -29,6 +31,10 @@ class Win(Common):
 
         # window number that will be displaying the current file
         self.jump_win = None
+        self.break_idx = 0
+        self.break_sign_begin = 0
+        self.break_sign_end = 0
+
         #self.cursor = cursor
         #self.breakpoint = break_point
         #self.buffers = set()
@@ -147,7 +153,6 @@ class Win(Common):
     def evt_GdbOnJump(self, data: BaseData):
         self.logger.info(f"{data}")
         assert isinstance(data, DataEvtCursor)
-        self.update_model()
 
         #self._context.vimgdb.vim.command("e " + jumpfile  + ":" + jumpline)
         #self._context.vimgdb.vim.asyn_call("VimGdbJump", jumpfile, jumpline)
@@ -156,26 +161,69 @@ class Win(Common):
         #self._context.vimgdb._wrap_async(
         #        self._context.vimgdb.vim.funcs.VimGdbJump)(
         #                jumpfile, jumpline)
+
         vimCmdstr = "VimGdbJump('" + data.fName + "', " + data.fLine + ")"
+        self.logger.debug(f"{vimCmdstr}")
+        self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
+
+    def view_UpdateBacktrace(self, data: BaseData):
+        vimCmdstr = "VimGdbViewBtrace()"
+        self.logger.debug(f"{vimCmdstr}")
+        self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
+
+    def view_UpdateBreakpoint(self, data: BaseData):
+        vimCmdstr = "VimGdbViewBpoint()"
         self.logger.debug(f"{vimCmdstr}")
         self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
 
 
     def view_ClearAllBreak(self, data: BaseData):
-        vimCmdstr = "VimGdbClearSign()"
+        self.logger.debug(f"{Common.vimsign_group_breakp}: Clear all breaks sign")
+        self._ctx._wrap_async(self._ctx.vim.call)('sign_unplace', '*', {'group': Common.vimsign_group_breakp})
+
+        self.break_idx = 0
+        self.break_sign_begin = 5000
+        self.break_sign_end = 5000
+
+    def view_ClearAllBreak2(self, data: BaseData):
+        vimCmdstr = "VimGdbClearSign(" \
+                + str(self.break_sign_begin) + ", " \
+                + str(self.break_sign_end) \
+                + ")"
         self.logger.debug(f"{vimCmdstr}")
         self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
 
+        self.break_idx = 0
+        self.break_sign_begin = 5000
+        self.break_sign_end = 5000
 
     def view_SignBreak(self, data: BaseData):
         assert isinstance(data, DataObjBreakpoint)
         vimCmdstr = ''
+        vimSignName = ''
+        if self.break_idx < Common.vimsign_break_max:
+            self.break_idx += 1
         if data.enable:
-            vimCmdstr = "VimGdbSign('" + data.fName + "', " + str(data.fLine) + ", " + str(data.vim_signid) + ", 1)"
+            vimSignName = f'GdbBreakpointEn{self.break_idx}'
         else:
-            vimCmdstr = "VimGdbSign('" + data.fName + "', " + str(data.fLine) + ", " + str(data.vim_signid) + ", 0)"
-        self.logger.debug(f"{vimCmdstr}")
+            vimSignName = f'GdbBreakpointDis{self.break_idx}'
+
+        vimCmdstr = "VimGdbSign('" \
+                + data.fName + "', " \
+                + str(data.fLine) + ", " \
+                + str(self.break_sign_end) + ", " \
+                + "'" + Common.vimsign_group_breakp + "'," \
+                + "'" + vimSignName + "'" \
+                + ")"
+
+
+        #self.vim.call('sign_place', sign_id, 'NvimGdb', sign_name, buf,
+        #              {'lnum': line, 'priority': 10})
+
+        self.logger.debug(f"{Common.vimsign_break_max}: {vimCmdstr}")
         self._ctx._wrap_async(self._ctx.vim.eval)(vimCmdstr)
+        self.break_sign_end += 1
+
 
 
 

@@ -22,6 +22,11 @@ class BaseCommon:
 class Common(BaseCommon):
     """Common part of all classes with convenient constructor."""
 
+    md5_coll              = {}
+    vimsign_break_max     = 0
+    vimsign_group_breakp  = 'vimgdbBreakp'
+    vimsign_group_cursor  = 'vimgdbCursor'
+
     # debug file
     gdb_file_debugfile    = "/tmp/vimgdb.log"
 
@@ -33,28 +38,26 @@ class Common(BaseCommon):
     gdb_break_qf          = '/tmp/vimgdb.qf_bp'
     gdb_tmp_break         = './.gdb.infobreak'
     #gdb_tmp_break         = '/tmp/vimgdb.infobreak'
-    gdb_bt_qf_md5         = None
 
     gdb_file_infolocal    = "/tmp/vimgdb.var"
     gdb_file_vimleave     = "/tmp/vimLeave"
     gdb_file_bp_fromgdb   = "./.gdb.break"
     gdb_file_bp_fromctrl   = "./.gdb.breakctrl"
-    gdb_anchor_breakpoint = "neobugger_setbreakpoint"
+    gdb_anchor_breakpoint = "_@breakpoint@_"
 
     def __init__(self, common):
         """ctor."""
         super().__init__(common.vim)
 
-    def update_view(self):
+    @staticmethod
+    def check_content(fName):
         #self.logger.warning("abstract!")
-        pass
-
-    def update_model(self):
-        #self.logger.warning("abstract!")
-        with open(self.gdb_bt_qf, "r") as f:
+        with open(fName, "r") as f:
             md5_hash = hashlib.md5()
             rows = ''.join(f.readlines()[1:])
             digest = hashlib.md5(rows.encode("utf8")).hexdigest()
-            if digest != self.gdb_bt_qf_md5:
-                self.gdb_bt_qf_md5 = digest
-                self.update_view()
+            if fName in Common.md5_coll and digest == Common.md5_coll[fName]:
+                return False
+            Common.md5_coll[fName] = digest
+            return True
+
