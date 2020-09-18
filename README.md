@@ -61,40 +61,6 @@ Vim plugin implement GDB front-end for c/c++ gdb base on Neovim + Tmux:
 
 # Command & Keymap
 
-## commands
-  - :GdbLocal
-  - :GdbDebugStop
-  - :GdbToggleBreakpoint
-  - :GdbClearBreakpoints
-  - :GdbContinue
-  - :GdbNext
-  - :GdbStep
-  - :GdbFinish
-  - :GdbFrameUp
-  - :GdbFrameDown
-  - :GdbInterrupt
-  - :GdbEvalWord
-  - :GdbWatchWord
-
-## Default keymaps
-  - `<F2>`       start Helper
-  - `<F3>`       refresh and re-locate current line
-  - `<F4>`       continue
-  - `<Shift+F4>` stop
-  - `<F5>`       next
-  - `<Shift+F5>` just skip one line and not execute it
-  - `<F6>`       step
-  - `<Shift+F6>` finish current function and return to the caller
-  - `<F7>`       continue execute util this line
-  - `<F8>`       eval current member or eval the selected expression
-  - `<Shift+F8>` watch current member or watch the selected expression
-  - `<F9>`       toggle the current breakpoint
-  - `<F10>`      toggle all breakpoints
-
-## Customization
-
-Put these in your ``~/.vimrc`` to customize the keymaps:
-
 ### keymaps leader
 
 If define *g:neobugger_leader*, will *ignore* all *g:gdb_keymap_...* customized.
