@@ -96,13 +96,13 @@ class Model(Common, ABC):
                     else:
                         self.logger.error(f"state is None: {line}")
                 except AttributeError as error:
-                    self.logger.info(f"  parser error: '{error}'", )
+                    self.logger.error(f"  parser error: '{error}'", )
                 except Exception as exception:
-                    self.logger.info(f"  parser exception: '{exception}'", )
-                except:
-                    self.logger.info("  parser other: '%s'", sys.exc_info()[0])
-        except:
-            self.logger.info("Error parser file: '%s'", sys.exc_info()[0])
+                    self.logger.error(f"  parser exception: '{exception}'", )
+                except Exception as e:
+                    self.logger.error(f"exception other: {str(e)}")
+        except Exception as e:
+            self.logger.error(f"exception: {str(e)}")
 
 
     def run_parser(self, state: str):
@@ -116,6 +116,6 @@ class Model(Common, ABC):
             t1 = threading.Thread(target=self.parser_file)
             t1.start()
             #t1.join()
-        except:
-            self.logger.error("Error: Unable to start thread")
+        except Exception as e:
+            self.logger.error(f"thread exception: {str(e)}")
 

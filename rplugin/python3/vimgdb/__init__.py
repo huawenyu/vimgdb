@@ -64,6 +64,19 @@ class Entry(Common):
         self._ctx.handle_cmds(args)
 
 
+    @pynvim.function('VimGdbLayout')
+    def select_layout(self, args):
+        if not self._ctx:
+            self.vim.command('echomsg "Please call VimGdb(\'local\', \'a.out\')"')
+            return
+
+        if len(args) < 1:
+            self.logger.info("VimGdbSend('who', 'command'), but args=%s", args)
+            return
+        self.logger.info("VimGdbLayout args=%s", args)
+        self._ctx.select_layout(args[0])
+
+
     # Show help howto troubleshooting:
     #    Execute From Vim command line: call VimGdbDebug()
     @pynvim.function('VimGdbDebug')

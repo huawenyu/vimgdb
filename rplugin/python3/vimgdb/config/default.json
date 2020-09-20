@@ -1,0 +1,93 @@
+{
+    "session_name": "__vimgdb__",
+    "start_directory": "~",
+    "global_options": {
+        "default-shell": "/bin/bash",
+        "default-command": "/bin/bash"
+    },
+    "windows": [
+        {
+            "window_name": "default",
+            "layout": "main-vertical",
+            "options": {
+                "main-pane-width": 0.55
+            },
+            "focus": true,
+            "panes": [
+                {
+                    "shell_command": [
+                        "echo hello",
+                        "echo 'this pane should be selected on load'"
+                    ],
+                    "focus": true
+                },
+                {
+                    "shell_command": [
+                        "cd /var/log",
+                        "echo hello"
+                    ]
+                }
+            ]
+        },
+        {
+            "window_name": "layout2",
+            "layout": "main-horizontal",
+            "options": {
+                "main-pane-height": 0.50
+            },
+            "shell_command_before": "cd /var/www",
+            "panes": [
+                {
+                    "shell_command": [
+                        "cd /var/log",
+                        "echo hello"
+                    ]
+                },
+                {
+                    "shell_command": [
+                        "echo 'this pane should be focused, when window switched to first time'"
+                    ],
+                    "focus": true
+                },
+                {
+                    "shell_command": [
+                        "cd /var/log",
+                        "echo hello"
+                    ]
+                }
+            ]
+        },
+        {
+            "window_name": "sample",
+            "layout": "main-vertical",
+            "options": {
+                "main-pane-width": 0.55
+            },
+            "focus": true,
+            "panes": [
+                {
+                    "pane_name": "main",
+                    "shell_command": [
+                        "echo hello",
+                        "echo 'this pane should be selected on load'"
+                    ],
+                    "focus": true
+                },
+                {
+                    "pane_name": "gdb",
+                    "shell_command": [
+                        "cd /var/log",
+                        "echo hello"
+                    ]
+                },
+                {
+                    "pane_name": "infolocal",
+                    "shell_command": [
+                        "cd /var/log",
+                        "echo hello"
+                    ]
+                }
+            ]
+        }
+    ]
+}

@@ -30,9 +30,6 @@ Vim plugin implement GDB front-end for c/c++ gdb base on Neovim + Tmux:
       - install the plug
         Execute vim's command: ":PlugInstall"
 
-        Plug 'huawenyu/new.vim', Cond(has('nvim')) | Plug 'huawenyu/new-gdb.vim', Cond(has('nvim'))
-    ### And install the plug
-        vi's command: ":PlugInstall"
   - Press <F2> to toggle local or remote(need script support login to remote host and start gdbserver listen on port).
   - Debug:
     Focus the source code t1.c windows, and Press:

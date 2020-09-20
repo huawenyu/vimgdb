@@ -73,13 +73,18 @@ define parser_var_bt
 	set logging on
 	bt
 	set logging off
+
+	shell mv /tmp/vimgdb.var /tmp/vimgdb.var.old
 	set logging file /tmp/vimgdb.var
 	set logging overwrite on
 	set logging redirect on
 	set logging on
 	info local
 	set logging off
-    #echo neobugger_parseend\n
+	#echo neobugger_parseend\n
+	# brew install git-delta
+	#shell diff -u /tmp/vimgdb.var.old /tmp/vimgdb.var | diff-so-fancy > /tmp/vimgdb.var2
+	shell diff -u /tmp/vimgdb.var /tmp/vimgdb.var.old | delta | sed '1,2d;4,5d' > /tmp/vimgdb.var2
 end
 
 define silent_on
@@ -98,7 +103,8 @@ end
 # [https://ftp.gnu.org/old-gnu/Manuals/gdb-5.1.1/html_node/gdb_189.html]
 define hook-stop
 	handle SIGALRM nopass
-	parser_bt
+	#parser_bt
+	parser_var_bt
 end
 
 define hook-run

@@ -169,8 +169,8 @@ class Breakpoint(Model):
                         br_id = fields[0].split('.')[0]
 
                         breaks.append(DataObjBreakpoint.Create(fName, fLine, fName+":"+fLine, br_id, enable, funcName))
-            except:
-                self.logger.info("exception: '%s'", sys.exc_info()[0])
+            except Exception as e:
+                self.logger.error(f"exception: {str(e)}")
         # end-for
         return breaks
 
@@ -268,10 +268,10 @@ class Store(Common):
             if not os.path.isfile(Common.gdb_file_bp_fromctrl):
                 return False
             with open(Common.gdb_file_bp_fromctrl, 'r') as f:
-                self.bpointsByCmdStr = json.load(f)
+                self.bpointsByCmdStr = json.loads(f.read())
                 return True
-        except:
-            self.logger.info("Error parser file: '%s'", sys.exc_info()[0])
+        except Exception as e:
+            self.logger.error(f"exception: {str(e)}")
 
 
     @staticmethod
@@ -282,7 +282,7 @@ class Store(Common):
                 obj.logger.debug(f"Load json fail: no file '{Common.gdb_file_bp_fromctrl}'")
                 return None
             with open(Common.gdb_file_bp_fromctrl, 'r') as f:
-                json_obj = json.load(f)
+                json_obj = json.loads(f.read())
                 #obj.logger.debug(f"Load json: {json_obj}")
                 return
         finally:

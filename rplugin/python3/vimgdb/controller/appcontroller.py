@@ -3,6 +3,9 @@ import sys
 import re
 import _thread
 import time
+import json
+import codecs
+import os.path
 import subprocess
 from typing import Dict, List
 
@@ -12,6 +15,7 @@ from libtmux.window import Window
 
 from vimgdb.base.common import Common
 from vimgdb.base.controller import Controller, GdbMode
+from vimgdb.controller.workspace import Workspace
 from vimgdb.model.gdb import Gdb
 from vimgdb.model.gdbserver import GdbServer
 from vimgdb.model.cursor import Cursor
@@ -26,6 +30,7 @@ class AppController(Controller):
     def __init__(self, common: Common, args):
         super().__init__(common, type(self).__name__)
 
+        self._scriptdir = os.path.dirname(os.path.abspath(__file__))
         self._common = common
         self.is_exit = False
 
@@ -43,6 +48,8 @@ class AppController(Controller):
         self.tmux_pan_gdbserver = None
         self.tmux_sesname = ""
         self.tmux_sesid = ""
+        self.tmux_win_def_width = 800
+        self.tmux_win_def_height = 600
 
         self.ctx_gdb = None
         self.ctx_gdbserver = None
@@ -81,9 +88,6 @@ class AppController(Controller):
         self.tmux_server._update_windows()
         self.tmux_server._update_panes()
 
-        # self.tmux_win.select_layout('main-horizontal')
-        self.tmux_win.select_layout('main-vertical')
-
 
     def create_gdb_remote(self, args):
         modelGdb = Gdb(self._common, self, self.tmux_win, self.debug_bin, self.gdb_output)
@@ -102,9 +106,6 @@ class AppController(Controller):
 
         self.tmux_server._update_windows()
         self.tmux_server._update_panes()
-
-        # self.tmux_win.select_layout('main-horizontal')
-        self.tmux_win.select_layout('main-vertical')
 
 
     def _define_vimsigns(self):
@@ -127,6 +128,11 @@ class AppController(Controller):
                     {'text': brk,
                      'texthl': self.vim.vars['vimgdb_sign_breakp_color_dis']})
             Common.vimsign_break_max += 1
+
+
+    def select_layout(self, layout: str):
+        if layout in self.layout:
+            self.tmux_win.select_layout(self.layout[layout]['layout'])
 
 
     def run(self, args):
@@ -159,17 +165,14 @@ class AppController(Controller):
             return
 
         tmux_info = subprocess.check_output(
-            ['tmux', 'display-message', '-p', '#S;#{session_id};#{window_index};#{pane_id}'])
+            ['tmux', 'display-message', '-p', '#S;#{session_id};#{window_width};#{window_height};#{window_index};#{pane_id}'])
         tmux_info = tmux_info.decode()
-        [self.tmux_sesname, self.tmux_sesid, self.tmux_pwin_idx, self.tmux_curr_pan_id] = tmux_info.strip().split(';')
+        [self.tmux_sesname, self.tmux_sesid, self.tmux_win_def_width, self.tmux_win_def_height, self.tmux_pwin_idx, self.tmux_curr_pan_id] = tmux_info.strip().split(';')
 
         # option controller: kill other pane of current tmux window
         subprocess.check_output(['tmux', 'kill-pane', '-a', '-t', self.tmux_curr_pan_id])
 
-        self.logger.info("Current tmux session name='%s' id='%s' dir='%s'",
-                         self.tmux_sesname,
-                         self.tmux_sesid,
-                         self.workdir)
+        self.logger.info(f"Tmux: #{self.tmux_sesid} '{self.tmux_sesname}' {self.tmux_win_def_width}x{self.tmux_win_def_height} cwd='{self.workdir}'")
         self.tmux_server = Server()
         self.tmux_session = self.tmux_server.get_by_id(self.tmux_sesid)
 
@@ -187,6 +190,21 @@ class AppController(Controller):
         assert isinstance(self.tmux_win, Window)
         self.tmux_pane_vim = self.tmux_win.attached_pane
         assert isinstance(self.tmux_pane_vim, Pane)
+
+        self.conf = self._scriptdir + "/../config/default.json"
+        self.layout_conf = {}
+        if os.path.isfile("~/.vimgdb.conf"):
+            self.conf = "~/.vimgdb.conf"
+        #self.logger.info(f"connect config={self.conf}")
+        with open(self.conf, 'r') as f:
+            content = f.read()
+            #decoded_data=content.encode().decode('utf-8-sig')
+            self.layout_conf = json.loads(content)
+        tmpWork = Workspace(self._common, self.layout_conf,
+                self.tmux_server, self.tmux_win_def_width, self.tmux_win_def_height)
+        self.layout = tmpWork.buildlayout(Common.tmux_session_layout)
+        self.logger.info(f"connect layout={self.layout}")
+
         # self.tmux_pane_vim.enter()
         # self.tmux_pane_vim.clear()
         # self.tmux_pane_vim.send_keys("nvim " + self.file, suppress_history=True)
@@ -217,6 +235,12 @@ class AppController(Controller):
             self.create_gdb_remote(args)
         else:
             self.logger.error("VimGdb mode=%s not exist.", self.gdbMode)
+
+        if 'default' in self.layout:
+            self.tmux_win.select_layout(self.layout['default']['layout'])
+        else:
+            #self.tmux_win.select_layout('main-horizontal')
+            self.tmux_win.select_layout('main-vertical')
 
         # focus backto vim
         self.tmux_pane_vim.select_pane()

@@ -28,6 +28,7 @@ class Common(BaseCommon):
     vimsign_break_max     = 0
     vimsign_group_breakp  = 'vimgdbBreakp'
     vimsign_group_cursor  = 'vimgdbCursor'
+    tmux_session_layout   = "__vimgdb__"
 
     # debug file
     gdb_file_debugfile    = "/tmp/vimgdb.log"
