@@ -47,8 +47,8 @@ class Entry(Common):
 
         ##self.vim.out_write('\nneobugger_leave' + self.gdb_output + '\n')
         #self.logger.info("VimGdb handle VimLeave: Exiting the gdb debug %s", filename)
-        #if self.tmux_win:
-        #    self.tmux_win.kill_window()
+        #if self.tmux_window_vim:
+        #    self.tmux_window_vim.kill_window()
 
 
     @pynvim.function('VimGdbSend')
@@ -65,7 +65,7 @@ class Entry(Common):
 
 
     @pynvim.function('VimGdbLayout')
-    def select_layout(self, args):
+    def layout_select(self, args):
         if not self._ctx:
             self.vim.command('echomsg "Please call VimGdb(\'local\', \'a.out\')"')
             return
@@ -74,7 +74,12 @@ class Entry(Common):
             self.logger.info("VimGdbSend('who', 'command'), but args=%s", args)
             return
         self.logger.info("VimGdbLayout args=%s", args)
-        self._ctx.select_layout(args[0])
+        self._ctx.layout_select(args[0])
+
+
+    @pynvim.function('VimGdbLayoutList')
+    def layout_list(self, args):
+        self._ctx.list_layout()
 
 
     # Show help howto troubleshooting:

@@ -1,13 +1,13 @@
 {
     "session_name": "__vimgdb__",
-    "start_directory": "~",
-    "global_options": {
+    "#start_directory": "~",
+    "#global_options": {
         "default-shell": "/bin/bash",
         "default-command": "/bin/bash"
     },
     "windows": [
         {
-            "window_name": "default",
+            "window_name": "vimgdb@local",
             "layout": "main-vertical",
             "options": {
                 "main-pane-width": 0.55
@@ -15,6 +15,7 @@
             "focus": true,
             "panes": [
                 {
+                    "pane_name": "_builtin_main_",
                     "shell_command": [
                         "echo hello",
                         "echo 'this pane should be selected on load'"
@@ -22,6 +23,7 @@
                     "focus": true
                 },
                 {
+                    "pane_name": "_builtin_gdb_",
                     "shell_command": [
                         "cd /var/log",
                         "echo hello"
@@ -30,7 +32,7 @@
             ]
         },
         {
-            "window_name": "layout2",
+            "window_name": "vimgdb@remote",
             "layout": "main-horizontal",
             "options": {
                 "main-pane-height": 0.50
@@ -38,18 +40,21 @@
             "shell_command_before": "cd /var/www",
             "panes": [
                 {
+                    "pane_name": "_builtin_main_",
                     "shell_command": [
                         "cd /var/log",
                         "echo hello"
                     ]
                 },
                 {
+                    "pane_name": "_builtin_gdb_",
                     "shell_command": [
                         "echo 'this pane should be focused, when window switched to first time'"
                     ],
                     "focus": true
                 },
                 {
+                    "pane_name": "_builtin_gdbserver_",
                     "shell_command": [
                         "cd /var/log",
                         "echo hello"
@@ -58,7 +63,7 @@
             ]
         },
         {
-            "window_name": "sample",
+            "window_name": "vimgdb@sample",
             "layout": "main-vertical",
             "options": {
                 "main-pane-width": 0.55
@@ -66,25 +71,22 @@
             "focus": true,
             "panes": [
                 {
-                    "pane_name": "main",
+                    "pane_name": "_builtin_main_",
                     "shell_command": [
-                        "echo hello",
-                        "echo 'this pane should be selected on load'"
+                        ""
                     ],
                     "focus": true
                 },
                 {
-                    "pane_name": "gdb",
+                    "pane_name": "_builtin_gdb_",
                     "shell_command": [
-                        "cd /var/log",
-                        "echo hello"
+                        ""
                     ]
                 },
                 {
                     "pane_name": "infolocal",
                     "shell_command": [
-                        "cd /var/log",
-                        "echo hello"
+                        "tail -f /tmp/vimgdb.var2"
                     ]
                 }
             ]

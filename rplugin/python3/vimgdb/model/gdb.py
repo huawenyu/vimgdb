@@ -39,6 +39,8 @@ class GdbStateInit(State):
                         State.pat_shell_prompt,
                         State.pat_gdb_prompt1,
                         State.pat_gdb_prompt2,
+                        State.pat_gdb_local_start,
+                        State.pat_gdb_local_start2,
                         ],
                     hint = 'start shell',
                     actionCb = self.on_open,
@@ -228,7 +230,7 @@ class GdbStateRunning(State):
 
 class Gdb(Model):
 
-    def __init__(self, common: Common, ctx: Controller, win: Window, debug_bin: str, outfile: str):
+    def __init__(self, common: Common, ctx: Controller, win: Window, pane: Pane, debug_bin: str, outfile: str):
         super().__init__(common, type(self).__name__, outfile)
 
         # Cache all state, no need create it everytime
@@ -254,34 +256,44 @@ class Gdb(Model):
         self._acts2 = { }
         self._acts.update(self._acts2)
 
+        assert isinstance(win, Window)
+        assert isinstance(pane, Pane)
         self._win = win
-        self._pane = win
+        self._pane = pane
+
         self._ctx = ctx
         self._debug_bin = debug_bin
         self._outfile = outfile
         self._scriptdir = os.path.dirname(os.path.abspath(__file__))
 
-        os.system('touch ' + self._outfile)
-        os.system('truncate -s 0 ' + self._outfile)
+        #os.system('touch ' + self._outfile)
+        #os.system('truncate -s 0 ' + self._outfile)
 
-        #           echo \"PS1='newRuntime $ '\" >> /tmp/tmp.bashrc;
-        #           echo \"+o emacs\" >> /tmp/tmp.bashrc;
-        #           echo \"+o vi\" >> /tmp/tmp.bashrc;
-        #           bash --noediting --rcfile /tmp/tmp.bashrc
-        #self._gdb_bash = """cat ~/.bashrc > /tmp/vimgdb.bashrc;
-        #           echo \"PS1='newRuntime $ '\" >> /tmp/vimgdb.bashrc;
-        #           bash --rcfile /tmp/vimgdb.bashrc
-        #          """
-        self._gdb_bash = ""
-        self._cmd_gdb = "gdb --command " + self._scriptdir + "/../config/gdbinit -q -f --args " + self._debug_bin + " | tee -a " + self._outfile
+        ##           echo \"PS1='newRuntime $ '\" >> /tmp/tmp.bashrc;
+        ##           echo \"+o emacs\" >> /tmp/tmp.bashrc;
+        ##           echo \"+o vi\" >> /tmp/tmp.bashrc;
+        ##           bash --noediting --rcfile /tmp/tmp.bashrc
+        ##self._gdb_bash = """cat ~/.bashrc > /tmp/vimgdb.bashrc;
+        ##           echo \"PS1='newRuntime $ '\" >> /tmp/vimgdb.bashrc;
+        ##           bash --rcfile /tmp/vimgdb.bashrc
+        ##          """
+        #self._gdb_bash = ""
+        #self._cmd_gdb = "gdb --command " + self._scriptdir + "/../config/gdbinit -q -f --args " + self._debug_bin + " | tee -a " + self._outfile
 
-        self._pane = self._win.split_window(attach=True, start_directory=self._ctx.workdir, )
-        assert isinstance(self._pane, Pane)
-        if self._gdb_bash:
-            self._pane.send_keys(self._gdb_bash, suppress_history=True)
-        self._pane.send_keys(self._cmd_gdb, suppress_history=True)
+        #self._pane = self._win.split_window(attach=True, start_directory=self._ctx.workdir, )
+        #assert isinstance(self._pane, Pane)
+        #if self._gdb_bash:
+        #    self._pane.send_keys(self._gdb_bash, suppress_history=True)
+        #self._pane.send_keys(self._cmd_gdb, suppress_history=True)
 
         self.run_parser(GdbState.INIT)
+
+
+    @staticmethod
+    def get_cmdstr(scriptDir: str, debugBin: str, outputFile: str):
+        os.system('touch ' + outputFile)
+        os.system('truncate -s 0 ' + outputFile)
+        return "gdb --command " + scriptDir + "/../config/gdbinit -q -f --args " + debugBin + " | tee -a " + outputFile
 
 
     def handle_evt(self, data: BaseData):

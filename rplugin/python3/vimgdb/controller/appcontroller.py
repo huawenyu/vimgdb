@@ -41,7 +41,7 @@ class AppController(Controller):
         self.tmux_server = None
         self.tmux_session = None
         self.tmux_pwin_idx = ''
-        self.tmux_win = None
+        self.tmux_window_vim = None
         self.tmux_curr_pan_id = ''
         self.tmux_pan_vim = None
         self.tmux_pan_gdb = None
@@ -51,11 +51,18 @@ class AppController(Controller):
         self.tmux_win_def_width = 800
         self.tmux_win_def_height = 600
 
+        self.layout_conf = {}
+        self.workSpace = None
+        self.workLayouts = {}
+        self.helper = {}
+        self.helper['worklayouts_loaded'] = False
+
         self.ctx_gdb = None
         self.ctx_gdbserver = None
 
         self.cmd_gdb = ""
         self.cmd_gdbserver = ''
+        self.curr_layout = ''
 
         # self.breakpoint = Breakpoint(common)
         # self.cursor = Cursor(common)
@@ -77,7 +84,11 @@ class AppController(Controller):
 
 
     def create_gdb_local(self, args):
-        modelGdb = Gdb(self._common, self, self.tmux_win, self.debug_bin, self.gdb_output)
+        modelGdb = Gdb(self._common,
+                self,
+                self.tmux_window_vim,
+                self.workSpace.get_pane(self.curr_layout, Common.tmux_pane_builtin_gdb),
+                self.debug_bin, self.gdb_output)
         if not modelGdb:
             return
         self.models_coll[modelGdb._name] = modelGdb
@@ -90,14 +101,10 @@ class AppController(Controller):
 
 
     def create_gdb_remote(self, args):
-        modelGdb = Gdb(self._common, self, self.tmux_win, self.debug_bin, self.gdb_output)
-        if not modelGdb:
-            return
-        self.models_coll[modelGdb._name] = modelGdb
-        self.vim.vars['vimgdb_gdb'] = modelGdb._name
-        # self.vim.command('let g:vimgdb_gdb = ' + modelGdb._name)
-
-        modelGdbserver = GdbServer(self._common, self, self.tmux_win, self.debug_bin, self.gdbserver_output)
+        modelGdbserver = GdbServer(self._common, self,
+                self.tmux_window_vim,
+                self.workSpace.get_pane(self.curr_layout, Common.tmux_pane_builtin_gdbserver),
+                self.debug_bin, self.gdbserver_output)
         if not modelGdbserver:
             return
         self.models_coll[modelGdbserver._name] = modelGdbserver
@@ -130,9 +137,101 @@ class AppController(Controller):
             Common.vimsign_break_max += 1
 
 
-    def select_layout(self, layout: str):
-        if layout in self.layout:
-            self.tmux_win.select_layout(self.layout[layout]['layout'])
+    def list_layout(self):
+        names = ''
+        for layoutname in self.workLayouts.keys():
+            names += layoutname + ', '
+        self.vim.command(f'echomsg "VimGdb layout: `{names}`"')
+
+
+    def load_layout_conf(self):
+        self.conf = self._scriptdir + "/../config/default.json"
+        if os.path.isfile(Common.vimgdb_conffile):
+            self.conf = Common.vimgdb_conffile
+        #self.logger.info(f"connect config={self.conf}")
+        with open(self.conf, 'r') as f:
+            content = f.read()
+            #decoded_data=content.encode().decode('utf-8-sig')
+            self.layout_conf = json.loads(content)
+
+    def build_workspace(self):
+        self.load_layout_conf()
+
+        tmux_builtin_panes = {}
+        self.helper[Common.tmux_builtin_panes] = tmux_builtin_panes
+        tmux_builtin_panes[Common.tmux_pane_builtin_main] = ''
+        tmux_builtin_panes[Common.tmux_pane_builtin_gdb] = Gdb.get_cmdstr(self._scriptdir,
+                self.debug_bin, Common.gdb_output)
+        tmux_builtin_panes[Common.tmux_pane_builtin_gdbserver] = GdbServer.get_cmdstr(self._scriptdir,
+                self.debug_bin, Common.gdb_output)
+
+        self.workSpace = Workspace(self._common,
+                self.layout_conf,
+                self.helper[Common.tmux_builtin_panes],
+                self.workdir,
+                self.tmux_server, self.tmux_win_def_width, self.tmux_win_def_height)
+
+        self.build_set_current()
+        if self.gdbMode == GdbMode.LOCAL:
+            self.curr_layout = Common.tmux_layout_local
+        elif self.gdbMode == GdbMode.REMOTE:
+            self.curr_layout = Common.tmux_layout_remote
+
+        self.build_all_layout_codes()
+        self.build_layout(self.curr_layout)
+
+
+    def build_all_layout_codes(self):
+        if self.workLayouts and self.helper['worklayouts_loaded']:
+            self.logger.info(f"connect Existed and don't need create layout={self.workLayouts}")
+            return
+
+        self.helper['worklayouts_loaded'] = True
+        self.workLayouts.update(self.workSpace.build_all_layout_codes(Common.tmux_vimgdb_session_name))
+        self.logger.info(f"connect layout={self.workLayouts}")
+
+
+    def build_set_current(self):
+        # Tmux: reuse current tmux-window, but close all other panes in current window
+        #   for only current vim is the controled vim instance.
+        # self.tmux_window_vim = self.tmux_session.new_window(
+        #        attach=True,           # do not move to the new window
+        #        window_name="VimGdb",
+        #        start_directory=self.workdir,
+        #        window_index='', #
+        #        window_shell='', #"vim " + self.file,
+        #        )
+        self.tmux_window_vim = self.tmux_session.attached_window;
+        assert isinstance(self.tmux_window_vim, Window)
+        self.tmux_window_vim['window_name'] = self.curr_layout
+
+        self.tmux_pane_vim = self.tmux_window_vim.attached_pane
+        assert isinstance(self.tmux_pane_vim, Pane)
+        self.tmux_pane_vim['pane_name'] = Common.tmux_pane_builtin_main
+
+
+    def build_layout(self, layout: str):
+        self.logger.info(f"connect rebuild layout '{layout}'")
+        self.workSpace.build_one_layout(layout,
+                self.tmux_session,
+                self.tmux_window_vim,
+                self.tmux_pane_vim,
+                Common.tmux_pane_builtin_main)
+
+
+    def layout_select(self, layout: str):
+        if layout not in self.workLayouts:
+            self.vim.command(f'echomsg "VimGdb layout `{layout}` not exist, check VimGdbLayoutList()"')
+            return
+
+        # But can't create new pane
+        #self.tmux_window_vim.select_layout(self.workLayouts[layout]['layout'])
+
+        self.workSpace.build_one_layout(layout,
+                self.tmux_session,
+                self.tmux_window_vim,
+                self.tmux_pane_vim,
+                Common.tmux_pane_builtin_main)
 
 
     def run(self, args):
@@ -176,38 +275,8 @@ class AppController(Controller):
         self.tmux_server = Server()
         self.tmux_session = self.tmux_server.get_by_id(self.tmux_sesid)
 
-        # Tmux: reuse current tmux-window, but close all other panes in current window
-        #   for only current vim is the controled vim instance.
-        # self.tmux_win = self.tmux_session.new_window(
-        #        attach=True,           # do not move to the new window
-        #        window_name="VimGdb",
-        #        start_directory=self.workdir,
-        #        window_index='', #
-        #        window_shell='', #"vim " + self.file,
-        #        )
+        self.build_workspace()
 
-        self.tmux_win = self.tmux_session.attached_window;
-        assert isinstance(self.tmux_win, Window)
-        self.tmux_pane_vim = self.tmux_win.attached_pane
-        assert isinstance(self.tmux_pane_vim, Pane)
-
-        self.conf = self._scriptdir + "/../config/default.json"
-        self.layout_conf = {}
-        if os.path.isfile("~/.vimgdb.conf"):
-            self.conf = "~/.vimgdb.conf"
-        #self.logger.info(f"connect config={self.conf}")
-        with open(self.conf, 'r') as f:
-            content = f.read()
-            #decoded_data=content.encode().decode('utf-8-sig')
-            self.layout_conf = json.loads(content)
-        tmpWork = Workspace(self._common, self.layout_conf,
-                self.tmux_server, self.tmux_win_def_width, self.tmux_win_def_height)
-        self.layout = tmpWork.buildlayout(Common.tmux_session_layout)
-        self.logger.info(f"connect layout={self.layout}")
-
-        # self.tmux_pane_vim.enter()
-        # self.tmux_pane_vim.clear()
-        # self.tmux_pane_vim.send_keys("nvim " + self.file, suppress_history=True)
         self.vim.funcs.VimGdbInit()
         self._define_vimsigns()
 
@@ -229,20 +298,15 @@ class AppController(Controller):
             return
         self.views_coll[_view._name] = _view
 
-        if self.gdbMode == GdbMode.LOCAL:
+        self.logger.error("VimGdb mode=%s not exist.", self.gdbMode)
+        if self.gdbMode == GdbMode.LOCAL or self.gdbMode == GdbMode.REMOTE:
             self.create_gdb_local(args)
-        elif self.gdbMode == GdbMode.REMOTE:
+        if self.gdbMode == GdbMode.REMOTE:
             self.create_gdb_remote(args)
-        else:
-            self.logger.error("VimGdb mode=%s not exist.", self.gdbMode)
 
-        if 'default' in self.layout:
-            self.tmux_win.select_layout(self.layout['default']['layout'])
-        else:
-            #self.tmux_win.select_layout('main-horizontal')
-            self.tmux_win.select_layout('main-vertical')
+        ##self.tmux_window_vim.select_layout('main-horizontal')
+        #self.tmux_window_vim.select_layout('main-vertical')
 
         # focus backto vim
         self.tmux_pane_vim.select_pane()
-
         return

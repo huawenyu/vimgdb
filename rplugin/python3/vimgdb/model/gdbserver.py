@@ -118,7 +118,7 @@ class GdbStateConnSucc(State):
 
 
 class GdbServer(Model):
-    def __init__(self, common: Common, ctx: Controller, win: Window, debug_bin: str, outfile: str):
+    def __init__(self, common: Common, ctx: Controller, win: Window, pane: Pane, debug_bin: str, outfile: str):
         super().__init__(common, type(self).__name__, outfile)
 
         # Cache all state, no need create it everytime
@@ -131,23 +131,30 @@ class GdbServer(Model):
                 GdbState.RUN:       GdbStateStart(common, GdbState.RUN, self, ctx),
                 }
 
+        assert isinstance(win, Window)
+        assert isinstance(pane, Pane)
         self._win = win
-        self._pane = win
+        self._pane = pane
+
         self._ctx = ctx
         self._debug_bin = debug_bin
         self._outfile = outfile
         self._scriptdir = os.path.dirname(os.path.abspath(__file__))
 
-        os.system('touch ' + self._outfile)
-        os.system('truncate -s 0 ' + self._outfile)
+        #self._cmd_gdbserver = 'dut.py -h dut -u admin -p "" -t "gdb:wad" ' + " | tee -a " + self.gdbserver_output
 
-        self._cmd_gdbserver = 'dut.py -h dut -u admin -p "" -t "gdb:wad" ' + " | tee -a " + self.gdbserver_output
-
-        self._pane = self._win.split_window(attach=True, start_directory=self._ctx.workdir, )
-        assert isinstance(self._pane, Pane)
-        self._pane.send_keys(self._cmd_gdbserver, suppress_history=True)
+        #self._pane = self._win.split_window(attach=True, start_directory=self._ctx.workdir, )
+        #assert isinstance(self._pane, Pane)
+        #self._pane.send_keys(self._cmd_gdbserver, suppress_history=True)
 
         self.run_parser(GdbState.INIT)
+
+
+    @staticmethod
+    def get_cmdstr(scriptDir: str, debugBin: str, outputFile: str):
+        os.system('touch ' + outputFile)
+        os.system('truncate -s 0 ' + outputFile)
+        return 'dut.py -h dut -u admin -p "" -t "gdb:wad" ' + " | tee -a " + outputFile
 
 
     def handle_evt(self, data: BaseData):

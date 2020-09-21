@@ -23,15 +23,24 @@ class BaseCommon:
 class Common(BaseCommon):
     """Common part of all classes with convenient constructor."""
 
+    # debug file
+    vimgdb_debugfile    = "/tmp/vimgdb.log"
+    vimgdb_conffile     = "~/.vimgdb.conf"
+
     # So far vimgdb share the same file, means multiple-gdb may cause issue.
     md5_coll              = {}
     vimsign_break_max     = 0
     vimsign_group_breakp  = 'vimgdbBreakp'
     vimsign_group_cursor  = 'vimgdbCursor'
-    tmux_session_layout   = "__vimgdb__"
 
-    # debug file
-    gdb_file_debugfile    = "/tmp/vimgdb.log"
+    tmux_vimgdb_session_name    = "__vimgdb__"
+    tmux_layout_local           = "vimgdb@local"
+    tmux_layout_remote          = "vimgdb@remote"
+    tmux_builtin_panes          = "builtin_panes"
+
+    tmux_pane_builtin_main      = "_builtin_main_"
+    tmux_pane_builtin_gdb       = "_builtin_gdb_"
+    tmux_pane_builtin_gdbserver = "_builtin_gdbserver_"
 
     # map output
     gdb_output            = '/tmp/vimgdb.gdb'

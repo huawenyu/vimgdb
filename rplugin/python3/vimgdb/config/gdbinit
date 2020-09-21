@@ -84,7 +84,7 @@ define parser_var_bt
 	#echo neobugger_parseend\n
 	# brew install git-delta
 	#shell diff -u /tmp/vimgdb.var.old /tmp/vimgdb.var | diff-so-fancy > /tmp/vimgdb.var2
-	shell diff -u /tmp/vimgdb.var /tmp/vimgdb.var.old | delta | sed '1,2d;4,5d' > /tmp/vimgdb.var2
+	shell delta /tmp/vimgdb.var.old /tmp/vimgdb.var | sed '1,2d;4,5d' > /tmp/vimgdb.var2
 end
 
 define silent_on

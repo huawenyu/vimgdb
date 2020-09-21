@@ -15,6 +15,7 @@ class State(Common, ABC):
     pat_dummy               = ("dummy", re.compile(r"^dummy "))
     pat_gdb_leave           = ("leave", re.compile(r'^neobugger_leave'))
     pat_gdb_local_start     = ("localStart", re.compile(r'^neobugger_local_start'))
+    pat_gdb_local_start2    = ("localStart", re.compile(r'^Reading symbols from .*\.\.\.done\.'))
 
     pat_prompt              = ("prompt", re.compile(r'\x1a\x1a\x1a$'))
     pat_shell_prompt        = ("shellPrompt", re.compile(r"^newRuntime "))
