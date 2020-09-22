@@ -31,6 +31,7 @@ class GdbStateInit(State):
     def __init__(self, common: Common, name: str, model: Model, ctx: Controller):
         super().__init__(common, name, model, ctx)
 
+        self._model = model
         self._patts = [
                 Pattern(rePatts = [
                         State.pat_server_listen,
@@ -40,6 +41,12 @@ class GdbStateInit(State):
                     nextState = GdbState.START,
                     ),
                 ]
+
+        self._evts.update({
+                "evtGdbIsReady":         self.evt_GdbIsReady,
+                })
+        model._evts.update(self._evts)
+
 
     def on_listen(self, line):
         port = self._rematch.group(1)
@@ -51,6 +58,9 @@ class GdbStateInit(State):
     def handle_cmd(self, cmd):
         self.logger.info("handle_cmd: {%s}", cmd)
 
+
+    def evt_GdbIsReady(self, data: BaseData):
+        self._model.start_gdbserver()
 
 
 class GdbStateStart(State):
@@ -141,21 +151,23 @@ class GdbServer(Model):
         self._outfile = outfile
         self._scriptdir = os.path.dirname(os.path.abspath(__file__))
 
-        #self._cmd_gdbserver = 'dut.py -h dut -u admin -p "" -t "gdb:wad" ' + " | tee -a " + self.gdbserver_output
+        self._cmd_gdbserver = 'dut.py -h dut -u admin -p "" -t "gdb:wad" ' + " | tee -a " + self.gdbserver_output
 
         #self._pane = self._win.split_window(attach=True, start_directory=self._ctx.workdir, )
         #assert isinstance(self._pane, Pane)
-        #self._pane.send_keys(self._cmd_gdbserver, suppress_history=True)
 
         self.run_parser(GdbState.INIT)
 
 
     @staticmethod
-    def get_cmdstr(scriptDir: str, debugBin: str, outputFile: str):
-        os.system('touch ' + outputFile)
-        os.system('truncate -s 0 ' + outputFile)
-        return 'dut.py -h dut -u admin -p "" -t "gdb:wad" ' + " | tee -a " + outputFile
+    def get_cmdstr(scriptDir: str, debugBin: str):
+        os.system('touch ' + Common.gdbserver_output)
+        os.system('truncate -s 0 ' + Common.gdbserver_output)
+        return 'dut.py -h dut -u admin -p "" -t "gdb:wad" ' + " |& tee -ia " + Common.gdbserver_output
 
+
+    def start_gdbserver(self):
+        self._pane.send_keys(self._cmd_gdbserver, suppress_history=True)
 
     def handle_evt(self, data: BaseData):
         if data._name in self._evts:

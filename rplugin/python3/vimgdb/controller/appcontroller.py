@@ -160,10 +160,11 @@ class AppController(Controller):
         tmux_builtin_panes = {}
         self.helper[Common.tmux_builtin_panes] = tmux_builtin_panes
         tmux_builtin_panes[Common.tmux_pane_builtin_main] = ''
-        tmux_builtin_panes[Common.tmux_pane_builtin_gdb] = Gdb.get_cmdstr(self._scriptdir,
-                self.debug_bin, Common.gdb_output)
-        tmux_builtin_panes[Common.tmux_pane_builtin_gdbserver] = GdbServer.get_cmdstr(self._scriptdir,
-                self.debug_bin, Common.gdb_output)
+        tmux_builtin_panes[Common.tmux_pane_builtin_gdb] = Gdb.get_cmdstr(self._scriptdir, self.debug_bin)
+
+        # Avoid gdbserver start too ealier, waiting gdb done.
+        #tmux_builtin_panes[Common.tmux_pane_builtin_gdbserver] = GdbServer.get_cmdstr(self._scriptdir, self.debug_bin)
+        tmux_builtin_panes[Common.tmux_pane_builtin_gdbserver] = ''
 
         self.workSpace = Workspace(self._common,
                 self.layout_conf,

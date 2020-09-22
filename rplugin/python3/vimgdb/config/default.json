@@ -17,47 +17,43 @@
                 {
                     "pane_name": "_builtin_main_",
                     "shell_command": [
-                        "echo hello",
-                        "echo 'this pane should be selected on load'"
+                        ""
                     ],
                     "focus": true
                 },
                 {
                     "pane_name": "_builtin_gdb_",
                     "shell_command": [
-                        "cd /var/log",
-                        "echo hello"
+                        ""
                     ]
                 }
             ]
         },
         {
             "window_name": "vimgdb@remote",
-            "layout": "main-horizontal",
+            "layout": "main-vertical",
             "options": {
-                "main-pane-height": 0.50
+                "main-pane-height": 0.55
             },
-            "shell_command_before": "cd /var/www",
+            "@shell_command_before": "cd /var/www",
             "panes": [
                 {
                     "pane_name": "_builtin_main_",
                     "shell_command": [
-                        "cd /var/log",
-                        "echo hello"
-                    ]
-                },
-                {
-                    "pane_name": "_builtin_gdb_",
-                    "shell_command": [
-                        "echo 'this pane should be focused, when window switched to first time'"
+                        ""
                     ],
                     "focus": true
                 },
                 {
+                    "pane_name": "_builtin_gdb_",
+                    "shell_command": [
+                        ""
+                    ]
+                },
+                {
                     "pane_name": "_builtin_gdbserver_",
                     "shell_command": [
-                        "cd /var/log",
-                        "echo hello"
+                        ""
                     ]
                 }
             ]
@@ -65,6 +61,7 @@
         {
             "window_name": "vimgdb@sample",
             "layout": "main-vertical",
+            "#layout": "main-horizontal",
             "options": {
                 "main-pane-width": 0.55
             },
@@ -86,6 +83,7 @@
                 {
                     "pane_name": "infolocal",
                     "shell_command": [
+                        "echo 'info local:'",
                         "tail -f /tmp/vimgdb.var2"
                     ]
                 }

@@ -31,6 +31,7 @@ Vim plugin implement GDB front-end for c/c++ gdb base on Neovim + Tmux:
         Execute vim's command: ":PlugInstall"
 
   - Press <F2> to toggle local or remote(need script support login to remote host and start gdbserver listen on port).
+  -    About the remote gdbserver, we can use the auto-login script like [autossh](https://github.com/islenbo/autossh) to make connect simple.
   - Debug:
     Focus the source code t1.c windows, and Press:
       F5   next

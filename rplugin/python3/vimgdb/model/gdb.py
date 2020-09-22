@@ -290,10 +290,10 @@ class Gdb(Model):
 
 
     @staticmethod
-    def get_cmdstr(scriptDir: str, debugBin: str, outputFile: str):
-        os.system('touch ' + outputFile)
-        os.system('truncate -s 0 ' + outputFile)
-        return "gdb --command " + scriptDir + "/../config/gdbinit -q -f --args " + debugBin + " | tee -a " + outputFile
+    def get_cmdstr(scriptDir: str, debugBin: str):
+        os.system('touch ' + Common.gdb_output)
+        os.system('truncate -s 0 ' + Common.gdb_output)
+        return "gdb --command " + scriptDir + "/../config/gdbinit -q -f --args " + debugBin + " |& tee -ia " + Common.gdb_output
 
 
     def handle_evt(self, data: BaseData):
@@ -357,6 +357,9 @@ class Gdb(Model):
         elif self._ctx.gdbMode == GdbMode.LOCAL:
             self._ctx._wrap_async(self._ctx.vim.eval)(f"VimGdbNewBreak(1, 'main')")
             self._ctx._wrap_async(self._ctx.vim.eval)(f"VimGdbFakeCmd('notify', 'breakdone', 1)")
+
+        if self._ctx.gdbMode == GdbMode.REMOTE:
+            self._ctx.handle_evts(DataEvent("evtGdbIsReady"))
 
 
     def evt_GdbserverOnListen(self, data: BaseData):
