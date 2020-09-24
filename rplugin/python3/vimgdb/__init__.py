@@ -31,8 +31,10 @@ class Entry(Common):
 
     @pynvim.autocmd('VimEnter', pattern='*', eval="", sync=True)
     def on_VimEnter(self):
-        if os.path.exists('/tmp/vimLeave'):
-            os.remove('/tmp/vimLeave')
+        pid = os.getpid()
+        Common.vimeventVimLeave += '.' + str(pid)
+        if os.path.exists(f'{Common.vimeventVimLeave}'):
+            os.remove(f'{Common.vimeventVimLeave}')
         #if len(self.gdb_output):
         #    self.vim.command('let g:vimgdb_output = ' + self.gdb_output)
         #    #self.vim.out_write('\nneobugger_leave' + self.gdb_output + '\n')
@@ -43,7 +45,7 @@ class Entry(Common):
     @pynvim.autocmd('VimLeave', pattern='*', eval='expand("<afile>")', sync=True)
     def on_VimLeave(self, filename):
         #os.system('touch ' + self._outfile)
-        os.system('touch /tmp/vimLeave')
+        os.system(f'touch {Common.vimeventVimLeave}')
 
         ##self.vim.out_write('\nneobugger_leave' + self.gdb_output + '\n')
         #self.logger.info("VimGdb handle VimLeave: Exiting the gdb debug %s", filename)

@@ -26,6 +26,7 @@ class Common(BaseCommon):
     # debug file
     vimgdb_debugfile    = "/tmp/vimgdb.log"
     vimgdb_conffile     = "~/.vimgdb.conf"
+    vimeventVimLeave    = "/tmp/vimLeave"
 
     # So far vimgdb share the same file, means multiple-gdb may cause issue.
     md5_coll              = {}
@@ -52,7 +53,6 @@ class Common(BaseCommon):
     #gdb_tmp_break         = '/tmp/vimgdb.infobreak'
 
     gdb_file_infolocal    = "/tmp/vimgdb.var"
-    gdb_file_vimleave     = "/tmp/vimLeave"
     gdb_file_bp_fromgdb   = "./.gdb.break"
     gdb_file_bp_fromctrl  = "./.gdb.breakctrl"
     gdb_anchor_breakpoint = "_@breakpoint@_"

@@ -63,7 +63,7 @@ class Model(Common, ABC):
         line = ''
         while True:
             #self.logger.info("Controller '%s' tail-file '%s' before", name, afile)
-            if os.path.exists('/tmp/vimLeave'):
+            if os.path.exists(f'{Common.vimeventVimLeave}'):
                 break
 
             part = thefile.readline()
@@ -87,7 +87,7 @@ class Model(Common, ABC):
             thefile = open(self._outfile, 'r')
             thelines = self.tail_file(self._name, self._outfile, thefile)
             for line in thelines:
-                if os.path.exists('/tmp/vimLeave'):
+                if os.path.exists(f'{Common.vimeventVimLeave}'):
                     break
                 try:
                     if self._state:
