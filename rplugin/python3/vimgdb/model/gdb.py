@@ -49,7 +49,7 @@ class GdbStateInit(State):
 
 
     def on_open(self, line):
-        self.logger.info("run to main()")
+        self.logger.info("Reading bin Done!")
         self._ctx.handle_evts(BaseData("evtGdbOnOpen"))
 
 
@@ -300,8 +300,10 @@ class Gdb(Model):
         if data._name in self._evts:
             self.logger.info(f"{data._name}()")
             self._evts[data._name](data)
+        elif self._state:
+            self.logger.info(f"State '{self._state._name}' Ignore {data._name}")
         else:
-            self.logger.info(f"Ignore {data._name}()")
+            self.logger.info(f"State is Null, Ignore {data._name}")
 
 
     def handle_cmd(self, cmdname, args):
@@ -310,8 +312,10 @@ class Gdb(Model):
             self._state._cmds[cmdname](args)
         elif cmdname in self._cmds2:
             self._cmds2[cmdname](args)
+        elif self._state:
+            self.logger.info(f"State '{self._state._name}' Ignore ...")
         else:
-            self.logger.info(f"Ignore ...")
+            self.logger.info(f"State is Null, Ignore ...")
 
 
     def handle_act(self, data: BaseData):
@@ -320,8 +324,10 @@ class Gdb(Model):
             self._state._acts[data._name](data)
         elif data._name in self._acts2:
             self._acts2[data._name](data)
+        elif self._state:
+            self.logger.info(f"State '{self._state._name}' Ignore {data._name}")
         else:
-            self.logger.info(f"Ignore {data._name}()")
+            self.logger.info(f"State is Null, Ignore {data._name}")
 
 
     def sendkeys(self, cmd: str):

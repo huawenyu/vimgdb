@@ -22,7 +22,7 @@ class GdbState:
     RUN       = 'run'
     SAME      = ''
 
-class GdbStateInit(State):
+class GdbserverStateInit(State):
 
     def __repr__(self):
         from pprint import pformat
@@ -63,7 +63,7 @@ class GdbStateInit(State):
         self._model.start_gdbserver()
 
 
-class GdbStateStart(State):
+class GdbserverStateStart(State):
 
     def __init__(self, common: Common, name: str, model: Model, ctx: Controller):
         super().__init__(common, name, model, ctx)
@@ -83,7 +83,7 @@ class GdbStateStart(State):
         pass
 
 
-class GdbStateConnSucc(State):
+class GdbserverStateConnSucc(State):
 
     def __repr__(self):
         from pprint import pformat
@@ -133,12 +133,12 @@ class GdbServer(Model):
 
         # Cache all state, no need create it everytime
         self._StateColl = {
-                GdbState.INIT:      GdbStateInit(common, GdbState.INIT, self, ctx),
-                GdbState.START:     GdbStateStart(common, GdbState.START, self, ctx),
-                GdbState.TARGET:    GdbStateStart(common, GdbState.TARGET, self, ctx),
-                GdbState.CONN_SUCC: GdbStateConnSucc(common, GdbState.CONN_SUCC, self, ctx),
-                GdbState.PAUSE:     GdbStateStart(common, GdbState.PAUSE, self, ctx),
-                GdbState.RUN:       GdbStateStart(common, GdbState.RUN, self, ctx),
+                GdbState.INIT:      GdbserverStateInit(common, GdbState.INIT, self, ctx),
+                GdbState.START:     GdbserverStateStart(common, GdbState.START, self, ctx),
+                GdbState.TARGET:    GdbserverStateStart(common, GdbState.TARGET, self, ctx),
+                GdbState.CONN_SUCC: GdbserverStateConnSucc(common, GdbState.CONN_SUCC, self, ctx),
+                GdbState.PAUSE:     GdbserverStateStart(common, GdbState.PAUSE, self, ctx),
+                GdbState.RUN:       GdbserverStateStart(common, GdbState.RUN, self, ctx),
                 }
 
         assert isinstance(win, Window)

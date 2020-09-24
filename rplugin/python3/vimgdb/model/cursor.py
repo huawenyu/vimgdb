@@ -74,7 +74,8 @@ class Cursor(Model):
     def evt_GdbOnJump(self, data: BaseData):
         self.logger.info("")
         assert isinstance(data, DataEvtCursor)
-        if self.fName != data.fName or self.fLine != data.fLine:
+        #if self.fName != data.fName or self.fLine != data.fLine:
+        if True:
             self.fName = data.fName
             self.fLine = data.fLine
             self._ctx.handle_shows(data)

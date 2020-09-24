@@ -118,13 +118,14 @@ class State(Common, ABC):
                             self._model._state._name,
                             pattName,
                             self._rematch.groups())
-                    onePatt.actionCb(line)
+
+                    # Handle match:
+                    #   1. transfer state
+                    #   2. handle the command with old_state self but under state
                     if len(onePatt.nextState) > 0:
-                        self._model.trans_to(onePatt.nextState)
-                    self.logger.info("State '%s' -> '%s': %s",
-                            o_state,
-                            self._model._state._name,
-                            onePatt.hint)
+                        self._model.trans_to(onePatt.nextState, onePatt.hint)
+
+                    onePatt.actionCb(line)
                     #if onePatt.update_model:
                     #    self.update_model()
                     break

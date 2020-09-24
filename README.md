@@ -21,8 +21,8 @@ Vim plugin implement GDB front-end for c/c++ gdb base on Neovim + Tmux:
   - neovim +python3
   - tmux
   - python3 library:
-    + sudo pip3 install pynvim
-    + sudo pip3 install libtmux
+    + pip3 install --user pynvim
+    + pip3 install --user libtmux
   - Install This vim plugin [vimgdb](https://github.com/huawenyu/vimgdb)
     + If using vim-plugin-manage like: [vim-plug](https://github.com/junegunn/vim-plug)
       - add to `.vimrc`

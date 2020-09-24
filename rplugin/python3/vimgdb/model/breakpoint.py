@@ -118,6 +118,8 @@ class Breakpoint(Model):
         if bp.status == DataObjBreakpoint.status_init:
             bp.status = DataObjBreakpoint.status_adding
             self._ctx.handle_acts(bp.action("actAddBreak"))
+        elif bp.status == DataObjBreakpoint.status_adding:
+            self._ctx.handle_acts(bp.action("actAddBreak"))
         elif bp.status == DataObjBreakpoint.status_enable:
             self._ctx.handle_acts(bp.action("actDisableBreak"))
         elif bp.status == DataObjBreakpoint.status_disable:

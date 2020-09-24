@@ -24,14 +24,14 @@ class Model(Common, ABC):
         self._acts = {}  # process the events/commands, then take action
 
 
-    def trans_to(self, state: str):
-        #if self._state and self._state._name == state:
-        #    self.logger.info("State '%s' trans_to itself.", state)
-        #    return False
-        #
+    def trans_to(self, state: str, hint: str):
         if state in self._StateColl:
+            o_state = ''
+            if self._state:
+                o_state = self._state._name
             self._state = self._StateColl.get(state)
-            #self.logger.debug("trans_to(%s) '%s' succ", state, self._state._name)
+            if o_state != state:
+                self.logger.info(f"'{o_state}' -> '{state}': {hint}")
             return True
         else:
             self.logger.error("State '%s' not exist.", state)
@@ -111,7 +111,7 @@ class Model(Common, ABC):
                 self.logger.info(f"Starting {self._name} thread don't need: no monitor file")
                 return
             self.logger.info(f"Starting {self._name} thread@{state} monitor file {self._outfile}")
-            self.trans_to(state)
+            self.trans_to(state, "ParserInit")
 
             t1 = threading.Thread(target=self.parser_file)
             t1.start()

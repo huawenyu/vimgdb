@@ -28,20 +28,6 @@ class Controller(Common):
         self.views_coll = {}
 
 
-    def trans_to(self, state):
-        #if self._state and self._state._name == state:
-        #    self.logger.info("State '%s' trans_to itself.", state)
-        #    return False
-        #
-        if state in self._StateColl:
-            self._state = self._StateColl.get(state)
-            #self.logger.debug("trans_to(%s) '%s' succ", state, self._state._name)
-            return True
-        else:
-            self.logger.error("State '%s' not exist.", state)
-        return False
-
-
     def handle_evts(self, data: BaseData):
         handled = False
         for modelName, model in self.models_coll.items():

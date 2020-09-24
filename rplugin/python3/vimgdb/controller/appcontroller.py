@@ -236,6 +236,8 @@ class AppController(Controller):
 
 
     def run(self, args):
+        os.system(f'touch {Common.vimgdb_debugfile}; truncate -s 0 {Common.vimgdb_debugfile}')
+
         self.logger.info("==============================================")
         self.logger.info("==============================================")
         self.logger.info("==============================================")
@@ -247,6 +249,14 @@ class AppController(Controller):
         if arg_n < 2:
             self.vim.command('echomsg "Gdb start fail, should: call VimGdb(\'local\', \'<bin-file>\')"')
             return
+
+        os.system(f'touch {Common.gdb_output}; truncate -s 0 {Common.gdb_output}')
+        os.system(f'touch {Common.gdbserver_output}; truncate -s 0 {Common.gdbserver_output}')
+        os.system(f'touch {Common.vimqf_backtrace}; truncate -s 0 {Common.vimqf_backtrace}')
+        os.system(f'touch {Common.vimqf_breakpoint}; truncate -s 0 {Common.vimqf_breakpoint}')
+        os.system(f'touch {Common.gdb_tmp_break}; truncate -s 0 {Common.gdb_tmp_break}')
+        os.system(f'touch {Common.gdb_file_infolocal}; truncate -s 0 {Common.gdb_file_infolocal}')
+
         self.gdbMode = args[0]
         self.gdbArgs = args[1]    # 't1 dut:8888 -u admin -p "" -t "gdb:trace"'
         chunks = re.split(' +', self.gdbArgs)
@@ -299,7 +309,7 @@ class AppController(Controller):
             return
         self.views_coll[_view._name] = _view
 
-        self.logger.error("VimGdb mode=%s not exist.", self.gdbMode)
+        self.logger.info(f"VimGdb mode={self.gdbMode}", )
         if self.gdbMode == GdbMode.LOCAL or self.gdbMode == GdbMode.REMOTE:
             self.create_gdb_local(args)
         if self.gdbMode == GdbMode.REMOTE:
