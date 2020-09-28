@@ -197,6 +197,12 @@ class Workspace(Common):
             if 'layout' in wconf:
                 win.select_layout(wconf['layout'])
 
+            if 'width' in pconf:
+                p.resize_pane(width=pconf['width'])
+                self.logger.info(f"connect resize_pane: {pconf['width']}")
+            if 'height' in pconf:
+                p.resize_pane(height=pconf['height'])
+
             if 'focus' in pconf and pconf['focus']:
                 focus_pane = p
 
@@ -268,6 +274,8 @@ class Workspace(Common):
             ses.server._update_windows()
             if 'options' in wconf and isinstance(wconf['options'], dict):
                 for option, value in wconf['options'].items():
+                    if option.startswith('#'):
+                        continue
                     if isinstance(value, str):
                         #  "70%"
                         if value.endswith('%'):

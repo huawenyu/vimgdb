@@ -10,7 +10,7 @@
             "window_name": "vimgdb@local",
             "layout": "main-vertical",
             "options": {
-                "main-pane-width": 0.55
+                "#main-pane-width": 0.55
             },
             "focus": true,
             "panes": [
@@ -19,6 +19,7 @@
                     "shell_command": [
                         ""
                     ],
+                    "#width": 60,
                     "focus": true
                 },
                 {
@@ -35,7 +36,7 @@
             "options": {
                 "main-pane-height": 0.55
             },
-            "@shell_command_before": "cd /var/www",
+            "#shell_command_before": "cd /var/www",
             "panes": [
                 {
                     "pane_name": "_builtin_main_",
@@ -63,7 +64,7 @@
             "layout": "main-vertical",
             "#layout": "main-horizontal",
             "options": {
-                "main-pane-width": 0.55
+                "#main-pane-width": 0.55
             },
             "focus": true,
             "panes": [
