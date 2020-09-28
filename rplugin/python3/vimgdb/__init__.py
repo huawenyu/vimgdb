@@ -45,7 +45,8 @@ class Entry(Common):
     @pynvim.autocmd('VimLeave', pattern='*', eval='expand("<afile>")', sync=True)
     def on_VimLeave(self, filename):
         #os.system('touch ' + self._outfile)
-        os.system(f'touch {Common.vimeventVimLeave}')
+        if self._ctx:
+            os.system(f'touch {Common.vimeventVimLeave}')
 
         ##self.vim.out_write('\nneobugger_leave' + self.gdb_output + '\n')
         #self.logger.info("VimGdb handle VimLeave: Exiting the gdb debug %s", filename)
