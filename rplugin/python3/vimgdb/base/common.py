@@ -23,10 +23,13 @@ class BaseCommon:
 class Common(BaseCommon):
     """Common part of all classes with convenient constructor."""
 
+    # tail-mode
+    tailModeSubprocess  = True    # 0 use read-file-sleep, 1 use system-shell tail -f
+
     # debug file
     vimgdb_debugfile    = "/tmp/vimgdb.log"
     vimgdb_conffile     = "~/.vimgdb.conf"
-    vimeventVimLeave    = "/tmp/vimLeave"
+    vimeventVimAlive    = "/tmp/vimAlive"
 
     # So far vimgdb share the same file, means multiple-gdb may cause issue.
     md5_coll              = {}

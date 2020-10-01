@@ -1,6 +1,8 @@
-import _thread
+import re
+import os
 import time
 import subprocess
+import threading
 
 from vimgdb.base.common import Common
 from vimgdb.base.data import BaseData
@@ -12,6 +14,8 @@ class GdbMode:
 
 
 class Controller(Common):
+
+    pat_follow_file     = re.compile(r'^==> ([\w\d\._/]+) <==$')
 
     def __init__(self, common: Common, name: str):
         super().__init__(common)
@@ -106,4 +110,50 @@ class Controller(Common):
             self._state.handle_line(line)
         else:
             self.logger.error("%s.state is None: %s", self._name, line)
+
+
+    def tail_files(self):
+        try:
+            self.logger.info(f"enter")
+            files = []
+            file2model = {}
+            cur_model = None
+            for modelName, model in self.models_coll.items():
+                if not os.path.exists(f'{model._outfile}'):
+                    os.system(f'touch {model._outfile}')
+                files.append(model._outfile)
+                file2model[model._outfile] = model
+                cur_model = model
+
+            if not files:
+                self.logger.info(f"connect@Exit by no tail files")
+                return
+
+            command = "tail -F" + " ".join(files)
+            self.logger.info(f"connect@ '{command}'")
+            #p = subprocess.Popen(command.split(), stdout=subprocess.PIPE, universal_newlines=True)
+            p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+            #p = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE, universal_newlines=True)
+            for line in iter(p.stdout.readline, ""):
+                if not os.path.exists(f'{Common.vimeventVimAlive}'):
+                    self.logger.info(f"connect@Exit by check '{Common.vimeventVimAlive}'")
+                    p.terminate()
+                    break
+
+                self.logger.info(f"connect@'{line}'")
+                res = self.pat_follow_file.match(line)
+                if res:
+                    if res.group(1) in file2model:
+                        cur_model = file2mode[res.group(1)]
+                    else:
+                        self.logger.error(f"connect@tail-file '{line}' have no model")
+                else:
+                    try:
+                        cur_model.parser_line(line)
+                    except Exception as e:
+                        self.logger.error(f"exception: {str(e)}")
+        except Exception as e:
+            self.logger.error(f"thread exception: {str(e)}")
+
+
 

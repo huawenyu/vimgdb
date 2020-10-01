@@ -1,7 +1,7 @@
-import threading
 import time
 import sys
 import os.path
+import threading
 #from typing import Dict, Tuple, Sequence
 from typing import Dict, List
 from abc import ABC, abstractmethod
@@ -63,7 +63,7 @@ class Model(Common, ABC):
         line = ''
         while True:
             #self.logger.info("Controller '%s' tail-file '%s' before", name, afile)
-            if os.path.exists(f'{Common.vimeventVimLeave}'):
+            if not os.path.exists(f'{Common.vimeventVimAlive}'):
                 break
 
             part = thefile.readline()
@@ -82,25 +82,29 @@ class Model(Common, ABC):
             line = ''
 
 
+    def parser_line(self, line):
+        try:
+            if self._state:
+                self.logger.info(f"connect@{self._state._name}@ '{line}'")
+                self._state.handle_line(line)
+            else:
+                self.logger.error(f"state is None: {line}")
+        except AttributeError as error:
+            self.logger.error(f"  parser error: '{error}'", )
+        except Exception as exception:
+            self.logger.error(f"  parser exception: '{exception}'", )
+        except Exception as e:
+            self.logger.error(f"exception other: {str(e)}")
+
+
     def parser_file(self):
         try:
             thefile = open(self._outfile, 'r')
             thelines = self.tail_file(self._name, self._outfile, thefile)
             for line in thelines:
-                if os.path.exists(f'{Common.vimeventVimLeave}'):
+                if not os.path.exists(f'{Common.vimeventVimAlive}'):
                     break
-                try:
-                    if self._state:
-                        self.logger.info(f"connect@{self._state._name}@ '{line}'")
-                        self._state.handle_line(line)
-                    else:
-                        self.logger.error(f"state is None: {line}")
-                except AttributeError as error:
-                    self.logger.error(f"  parser error: '{error}'", )
-                except Exception as exception:
-                    self.logger.error(f"  parser exception: '{exception}'", )
-                except Exception as e:
-                    self.logger.error(f"exception other: {str(e)}")
+                self.parser_line(line)
         except Exception as e:
             self.logger.error(f"exception: {str(e)}")
 
@@ -113,9 +117,11 @@ class Model(Common, ABC):
             self.logger.info(f"Starting {self._name} thread@{state} monitor file {self._outfile}")
             self.trans_to(state, "ParserInit")
 
-            t1 = threading.Thread(target=self.parser_file)
-            t1.start()
-            #t1.join()
+            if not Common.tailModeSubprocess:
+                t1 = threading.Thread(target=self.parser_file)
+                t1.setDaemon(True)
+                t1.start()
+                #t1.join()
         except Exception as e:
             self.logger.error(f"thread exception: {str(e)}")
 
