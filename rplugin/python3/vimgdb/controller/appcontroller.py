@@ -1,12 +1,12 @@
 import os
 import sys
 import re
-import _thread
 import time
 import json
 import codecs
 import os.path
 import subprocess
+import threading
 from typing import Dict, List
 
 from libtmux.pane import Pane
@@ -320,4 +320,12 @@ class AppController(Controller):
 
         # focus backto vim
         self.tmux_pane_vim.select_pane()
+
+        # monitor all outfile
+        if Common.tailModeSubprocess:
+            self.logger.info("Start subprocess(tail -f) ...")
+            t1 = threading.Thread(target=self.tail_files)
+            #t1.setDaemon(True)
+            t1.start()
+
         return
