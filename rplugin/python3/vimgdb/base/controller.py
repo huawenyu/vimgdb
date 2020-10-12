@@ -140,11 +140,14 @@ class Controller(Common):
                     p.terminate()
                     break
 
-                self.logger.info(f"connect@'{line}'")
+                line = line.rstrip('\r\n')
+                if len(line) == 0:
+                    continue
+                #self.logger.info(f"connect@'{line}'")
                 res = self.pat_follow_file.match(line)
                 if res:
                     if res.group(1) in file2model:
-                        cur_model = file2mode[res.group(1)]
+                        cur_model = file2model[res.group(1)]
                     else:
                         self.logger.error(f"connect@tail-file '{line}' have no model")
                 else:
