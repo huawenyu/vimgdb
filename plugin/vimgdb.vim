@@ -413,13 +413,6 @@ function! s:prototype.Map(viewname, type)
         exe 'cunmap ' . g:gdb_keymap_toggle_break
         exe 'unmap ' . g:gdb_keymap_frame_up
         exe 'unmap ' . g:gdb_keymap_frame_down
-        exe 'tunmap ' . g:gdb_keymap_refresh
-        exe 'tunmap ' . g:gdb_keymap_continue
-        exe 'tunmap ' . g:gdb_keymap_next
-        exe 'tunmap ' . g:gdb_keymap_step
-        exe 'tunmap ' . g:gdb_keymap_finish
-        exe 'tunmap ' . g:gdb_keymap_toggle_break_all
-
         if exists("*NeogdbvimUnmapCallback")
             call NeogdbvimUnmapCallback()
         endif
