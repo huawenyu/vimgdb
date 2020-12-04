@@ -151,7 +151,7 @@ class GdbServer(Model):
         self._outfile = outfile
         self._scriptdir = os.path.dirname(os.path.abspath(__file__))
 
-        self._cmd_gdbserver = 'cmdssh -d dut -u admin -p "" -t "gdb wad" ' + " | tee -a " + self.gdbserver_output
+        self._cmd_gdbserver = 'cmdssh -d dut -u admin -p "" -t "gdb wad" ' + " |& tee -ia " + self.gdbserver_output
 
         #self._pane = self._win.split_window(attach=True, start_directory=self._ctx.workdir, )
         #assert isinstance(self._pane, Pane)
@@ -163,7 +163,8 @@ class GdbServer(Model):
     def get_cmdstr(scriptDir: str, debugBin: str):
         os.system('touch ' + Common.gdbserver_output)
         os.system('truncate -s 0 ' + Common.gdbserver_output)
-        return 'dut.py -h dut -u admin -p "" -t "gdb:wad" ' + " |& tee -ia " + Common.gdbserver_output
+        #return 'dut.py -h dut -u admin -p "" -t "gdb:wad" ' + " |& tee -ia " + Common.gdbserver_output
+        return 'cmdssh -d dut -u admin -p "" -t "gdb wad" ' + " |& tee -ia " + Common.gdbserver_output
 
 
     def start_gdbserver(self):
