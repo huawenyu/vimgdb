@@ -1,16 +1,34 @@
 #set filename-display absolute
 #set remotetimeout 50
 set confirm off
-set pagination off
 set width 0
 set verbose off
 set logging off
-handle SIGUSR2 noprint nostop
-handle SIGPIPE noprint nostop
+
+set pagination off
+# disable clumsy paging (use terminal scrollback buffer instead)
+set height 0
+#set prompt [31m(gdb) [m
+
+handle SIGUSR2 nostop noignore noprint
+handle SIGPIPE nostop noignore noprint
+# for freertos POSIX simulation:
+handle SIGUSR1 nostop noignore noprint
+handle SIG34 nostop noignore noprint
+
 set print elements 2048
 set print pretty on
-set print array off
+#set print array off
+set print array on
 set print array-indexes on
+set print symbol-filename on
+set print null-stop on
+set print sevenbit-strings on
+set print union on
+set print demangle on
+set print object on
+set print static-members off
+set print vtbl on
 #source ./.gdb.breakpoints
 
 #define bsave
