@@ -54,6 +54,12 @@ let s:this._server_exited = 0
 let s:this._reconnect = 0
 let s:this._has_breakpoints = 0
 
+let s:enum_dbg_type = 0
+let s:enum_dbg_t_local = 0
+let s:enum_dbg_t_remote = 1
+let s:enum_dbg_t_termpack = 2
+let s:enum_dbg_t_termdebug = 3
+
 
 " @mode 0 refresh-all, 1 only-change
 function! s:prototype.RefreshBreakpointSigns(mode)
@@ -417,37 +423,69 @@ function! s:prototype.Map(viewname, type)
             call NeogdbvimUnmapCallback()
         endif
     elseif a:type ==# "nmap"
-        exe 'nnoremap <silent> ' . g:gdb_keymap_refresh          . ' :GdbRefresh<cr>'
-        exe 'nnoremap <silent> ' . g:gdb_keymap_continue         . ' :GdbContinue<cr>'
-        exe 'nnoremap <silent> ' . g:gdb_keymap_next             . ' :GdbNext<cr>'
-        exe 'nnoremap <silent> ' . g:gdb_keymap_step             . ' :GdbStep<cr>'
-        exe 'nnoremap <silent> ' . g:gdb_keymap_skip             . ' :GdbSkip<cr>'
-        exe 'nnoremap <silent> ' . g:gdb_keymap_finish           . ' :GdbFinish<cr>'
-        exe 'nnoremap <silent> ' . g:gdb_keymap_until            . ' :GdbUntil<cr>'
+        if exists(":Termdebug")
+            nnoremap <RightMouse> :Evaluate<CR>
 
-        let toggle_break_binding = 'nnoremap <silent> '  . g:gdb_keymap_toggle_break . ' :GdbToggleBreak<cr>'
-        if !g:gdb_require_enter_after_toggling_breakpoint
-            let toggle_break_binding = toggle_break_binding . '<cr>'
-        endif
-        exe toggle_break_binding
-        exe 'cnoremap <silent> ' . g:gdb_keymap_toggle_break     . ' <cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_refresh          . ' :call TermDebugSendCommand("info local")<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_continue         . ' :Continue<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_next             . ' :Over<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_step             . ' :Step<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_finish           . ' :Finish<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_until            . ' :GdbUntil<cr>'
 
-        exe 'nnoremap <silent> ' . g:gdb_keymap_toggle_break_all . ' :GdbToggleBreakAll<cr>'
+            let toggle_break_binding = 'nnoremap <silent> '  . g:gdb_keymap_toggle_break . ' :Break<cr>'
+            if !g:gdb_require_enter_after_toggling_breakpoint
+                let toggle_break_binding = toggle_break_binding . '<cr>'
+            endif
+            exe toggle_break_binding
+            exe 'cnoremap <silent> ' . g:gdb_keymap_toggle_break     . ' <cr>'
 
-        exe 'nnoremap <silent> ' . g:gdb_keymap_eval             . ' :GdbEvalWord<cr>'
-        exe 'vnoremap <silent> ' . g:gdb_keymap_eval             . ' :GdbEvalRange<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_toggle_break_all . ' :Clear<cr>'
 
-        exe 'nnoremap <silent> ' . g:gdb_keymap_watch            . ' :GdbWatchWord<cr>'
-        exe 'vnoremap <silent> ' . g:gdb_keymap_watch            . ' :GdbWatchRange<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_eval             . ' :Evaluate<cr>'
+            exe 'vnoremap <silent> ' . g:gdb_keymap_eval             . ' :Evaluate<cr>'
 
-        exe 'nnoremap <silent> ' . g:gdb_keymap_clear_break      . ' :GdbClearBreak<cr>'
-        exe 'nnoremap <silent> ' . g:gdb_keymap_debug_stop       . ' :GdbDebugStop<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_watch            . ' :GdbWatchWord<cr>'
+            exe 'vnoremap <silent> ' . g:gdb_keymap_watch            . ' :GdbWatchRange<cr>'
 
-        exe 'nnoremap <silent> ' . g:gdb_keymap_frame_up         . ' :GdbFrameUp<cr>'
-        exe 'nnoremap <silent> ' . g:gdb_keymap_frame_down       . ' :GdbFrameDown<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_clear_break      . ' :Clear<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_debug_stop       . ' :Stop<cr>'
 
-        if exists("*NeogdbvimNmapCallback")
-            call NeogdbvimNmapCallback()
+            exe 'nnoremap <silent> ' . g:gdb_keymap_frame_up         . ' :call TermDebugSendCommand("up")<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_frame_down       . ' :call TermDebugSendCommand("down")<cr>'
+        else
+            exe 'nnoremap <silent> ' . g:gdb_keymap_refresh          . ' :GdbRefresh<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_continue         . ' :GdbContinue<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_next             . ' :GdbNext<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_step             . ' :GdbStep<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_skip             . ' :GdbSkip<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_finish           . ' :GdbFinish<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_until            . ' :GdbUntil<cr>'
+
+            let toggle_break_binding = 'nnoremap <silent> '  . g:gdb_keymap_toggle_break . ' :GdbToggleBreak<cr>'
+            if !g:gdb_require_enter_after_toggling_breakpoint
+                let toggle_break_binding = toggle_break_binding . '<cr>'
+            endif
+            exe toggle_break_binding
+            exe 'cnoremap <silent> ' . g:gdb_keymap_toggle_break     . ' <cr>'
+
+            exe 'nnoremap <silent> ' . g:gdb_keymap_toggle_break_all . ' :GdbToggleBreakAll<cr>'
+
+            exe 'nnoremap <silent> ' . g:gdb_keymap_eval             . ' :GdbEvalWord<cr>'
+            exe 'vnoremap <silent> ' . g:gdb_keymap_eval             . ' :GdbEvalRange<cr>'
+
+            exe 'nnoremap <silent> ' . g:gdb_keymap_watch            . ' :GdbWatchWord<cr>'
+            exe 'vnoremap <silent> ' . g:gdb_keymap_watch            . ' :GdbWatchRange<cr>'
+
+            exe 'nnoremap <silent> ' . g:gdb_keymap_clear_break      . ' :GdbClearBreak<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_debug_stop       . ' :GdbDebugStop<cr>'
+
+            exe 'nnoremap <silent> ' . g:gdb_keymap_frame_up         . ' :GdbFrameUp<cr>'
+            exe 'nnoremap <silent> ' . g:gdb_keymap_frame_down       . ' :GdbFrameDown<cr>'
+
+            if exists("*NeogdbvimNmapCallback")
+                call NeogdbvimNmapCallback()
+            endif
         endif
     endif
 endfunction
@@ -597,11 +635,11 @@ else
     endif
 
     if !exists("g:gdb_keymap_frame_up")
-        let g:gdb_keymap_frame_up = '<c-n>'
+        let g:gdb_keymap_frame_up = '<a-n>'
     endif
 
     if !exists("g:gdb_keymap_frame_down")
-        let g:gdb_keymap_frame_down = '<c-p>'
+        let g:gdb_keymap_frame_down = '<a-p>'
     endif
 
 endif
@@ -781,19 +819,48 @@ endfunction
 " Helper options {{{1
 " call VimGdb('local', 't1')
 " call VimGdb('remote', 'sysinit/init')
-let s:gdb_command_state = 0
+"let s:enum_dbg_type = local
 let s:cur_extension = ''
 function! VimGdbCommandStr()
     let s:cur_extension = expand('%:e')
     if s:cur_extension ==# 'py'
         return "call VimGdb('python', '". fnamemodify(expand("%"), ":~:."). "')"
     else
-        if s:gdb_command_state
-            let s:gdb_command_state = 0
-            return "call VimGdb('remote', '". g:neogdb_attach_remote_str. "')"
-        else
-            let s:gdb_command_state = 1
+        if s:enum_dbg_type == s:enum_dbg_t_local
+            let s:enum_dbg_type = s:enum_dbg_t_remote
             return "call VimGdb('local', '". expand('%:t:r'). "')"
+        elseif s:enum_dbg_type == s:enum_dbg_t_remote
+            let s:enum_dbg_type = s:enum_dbg_t_termpack
+            return "call VimGdb('remote', '". g:neogdb_attach_remote_str. "')"
+        elseif s:enum_dbg_type == s:enum_dbg_t_termpack
+            let s:enum_dbg_type = s:enum_dbg_t_termdebug
+            " Source the termdebug plugin
+            return "packadd termdebug"
+        elseif s:enum_dbg_type == s:enum_dbg_t_termdebug
+            " https://chmanie.com/post/2020/07/18/debugging-arm-based-microcontrollers-in-neovim-with-gdb/
+            " See https://neovim.io/doc/user/nvim_terminal_emulator.html
+            let s:enum_dbg_type = s:enum_dbg_t_local
+            if exists(":Termdebug")
+                "let g:termdebugger_program = "pio device monitor -b 38400"
+                "let g:termdebug_useFloatingHover = 0
+                let g:termdebug_wide = 1
+
+                "hi debugPC term=reverse ctermbg=darkyellow guibg=darkyellow
+                hi debugPC cterm=NONE ctermbg=darkgreen ctermfg=white guibg=darkgreen guifg=white
+
+                call s:this.Map('', 'nmap')
+
+                if filereadable('./sysinit/init')
+                    return "Termdebug sysinit/init"
+                elseif filereadable('./CMakeLists.txt')
+                    return "Termdebug build/". expand('%:t:r')
+                else
+                    return "Termdebug ". expand('%:t:r')
+                endif
+            else
+                let s:enum_dbg_type = s:enum_dbg_t_remote
+                return "call VimGdb('local', '". expand('%:t:r'). "')"
+            endif
         endif
     endif
 endfunction
